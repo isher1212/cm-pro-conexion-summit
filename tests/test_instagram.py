@@ -72,3 +72,31 @@ def test_parse_posts_csv_empty():
 def test_parse_account_csv_empty():
     rows = parse_instagram_account_csv("")
     assert rows == []
+
+
+from backend.services.instagram_api import (
+    is_meta_configured, get_meta_status, fetch_meta_account_metrics,
+)
+
+
+def test_meta_not_configured_when_no_token():
+    config = {}
+    assert is_meta_configured(config) is False
+
+
+def test_meta_configured_when_token_present():
+    config = {"meta_access_token": "abc123", "meta_ig_user_id": "12345678"}
+    assert is_meta_configured(config) is True
+
+
+def test_get_meta_status_not_configured():
+    config = {}
+    status = get_meta_status(config)
+    assert status["configured"] is False
+    assert status["status"] == "not_configured"
+
+
+def test_fetch_meta_account_metrics_not_configured():
+    config = {}
+    result = fetch_meta_account_metrics(config)
+    assert result is None
