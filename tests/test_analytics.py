@@ -133,3 +133,49 @@ def test_get_metrics_empty_returns_list(tmp_path):
     result = get_metrics(conn, platform="LinkedIn", limit=10)
     assert result == []
     conn.close()
+
+
+def test_analytics_api_summary():
+    import os, tempfile
+    tmp = os.path.join(tempfile.gettempdir(), "test_analytics_cfg.json")
+    if os.path.exists(tmp): os.unlink(tmp)
+    os.environ["CM_CONFIG_PATH"] = tmp
+    from fastapi.testclient import TestClient
+    import importlib
+    import backend.main
+    importlib.reload(backend.main)
+    from backend.main import app
+    client = TestClient(app)
+    response = client.get("/api/analytics")
+    assert response.status_code == 200
+    data = response.json()
+    assert "summary" in data
+    assert "anomalies" in data
+
+
+def test_analytics_post_metrics_and_retrieve():
+    import os, tempfile
+    tmp = os.path.join(tempfile.gettempdir(), "test_analytics2_cfg.json")
+    if os.path.exists(tmp): os.unlink(tmp)
+    os.environ["CM_CONFIG_PATH"] = tmp
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app)
+    payload = {
+        "platform": "Instagram",
+        "followers": 6000,
+        "reach": 14000,
+        "impressions": 20000,
+        "likes": 900,
+        "comments": 130,
+        "shares": 70,
+        "engagement_rate": 7.8,
+        "week_label": "2026-W17",
+    }
+    r1 = client.post("/api/analytics/metrics", json=payload)
+    assert r1.status_code == 200
+    r2 = client.get("/api/analytics/history?platform=Instagram&weeks=5")
+    assert r2.status_code == 200
+    data = r2.json()
+    assert len(data["history"]) >= 1
+    assert data["history"][0]["followers"] == 6000

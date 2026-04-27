@@ -10,6 +10,7 @@ from backend.routers.health_router import router as health_router
 from backend.routers.config_router import router as config_router
 from backend.routers.intelligence_router import router as intelligence_router, _get_openai_client
 from backend.routers.trends_router import router as trends_router
+from backend.routers.analytics_router import router as analytics_router
 from backend.services.intelligence import run_intelligence_cycle
 from backend.services.trends import run_trends_cycle
 
@@ -60,6 +61,7 @@ app.include_router(health_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 app.include_router(intelligence_router, prefix="/api")
 app.include_router(trends_router, prefix="/api")
+app.include_router(analytics_router, prefix="/api")
 
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.exists(FRONTEND_DIST):
