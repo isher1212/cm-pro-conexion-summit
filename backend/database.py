@@ -44,6 +44,20 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
             week_label TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            platform TEXT NOT NULL,
+            post_description TEXT,
+            published_at TEXT,
+            reach INTEGER DEFAULT 0,
+            impressions INTEGER DEFAULT 0,
+            likes INTEGER DEFAULT 0,
+            comments INTEGER DEFAULT 0,
+            shares INTEGER DEFAULT 0,
+            engagement_rate REAL DEFAULT 0.0,
+            recorded_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS content_proposals (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             topic TEXT NOT NULL,
@@ -77,6 +91,9 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     conn.commit()
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_trends_day ON trends(keyword, platform, date(fetched_at))"
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_metrics_week ON metrics(platform, week_label)"
     )
     conn.commit()
     return conn
