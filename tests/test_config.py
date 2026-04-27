@@ -47,3 +47,36 @@ def test_config_schedules_have_all_keys():
     assert "telegram_trends_hour" in schedules
     assert "weekly_email_day" in schedules
     assert "weekly_email_hour" in schedules
+
+def test_get_config_returns_defaults():
+    import os
+    import tempfile
+    tmp_path = os.path.join(tempfile.gettempdir(), "test_cm_config_api.json")
+    os.environ["CM_CONFIG_PATH"] = tmp_path
+    if os.path.exists(tmp_path):
+        os.unlink(tmp_path)
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app)
+    response = client.get("/api/config")
+    assert response.status_code == 200
+    data = response.json()
+    assert "openai_api_key" in data
+    assert "rss_sources" in data
+    assert "content_pillars" in data
+    assert "schedules" in data
+
+def test_post_config_saves_value():
+    import os
+    import tempfile
+    tmp_path = os.path.join(tempfile.gettempdir(), "test_cm_config_post.json")
+    os.environ["CM_CONFIG_PATH"] = tmp_path
+    if os.path.exists(tmp_path):
+        os.unlink(tmp_path)
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app)
+    response = client.post("/api/config", json={"openai_api_key": "sk-newkey"})
+    assert response.status_code == 200
+    get_response = client.get("/api/config")
+    assert get_response.json()["openai_api_key"] == "sk-newkey"

@@ -4,6 +4,10 @@ from typing import Any
 
 CONFIG_PATH = os.environ.get("CM_CONFIG_PATH", "config.json")
 
+def _get_config_path() -> str:
+    """Read config path dynamically so tests can override CM_CONFIG_PATH at runtime."""
+    return os.environ.get("CM_CONFIG_PATH", CONFIG_PATH)
+
 DEFAULT_CONFIG: dict[str, Any] = {
     "openai_api_key": "",
     "email_sender": "",
@@ -87,7 +91,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 
-def load_config(path: str = CONFIG_PATH) -> dict[str, Any]:
+def load_config(path: str | None = None) -> dict[str, Any]:
+    if path is None:
+        path = _get_config_path()
     if not os.path.exists(path):
         return dict(DEFAULT_CONFIG)
     with open(path, "r", encoding="utf-8") as f:
@@ -101,6 +107,8 @@ def load_config(path: str = CONFIG_PATH) -> dict[str, Any]:
     return merged
 
 
-def save_config(cfg: dict[str, Any], path: str = CONFIG_PATH) -> None:
+def save_config(cfg: dict[str, Any], path: str | None = None) -> None:
+    if path is None:
+        path = _get_config_path()
     with open(path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, ensure_ascii=False, indent=2)
