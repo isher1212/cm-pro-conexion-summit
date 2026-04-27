@@ -1,0 +1,9 @@
+config.json
+*.db
+__pycache__/
+.env
+venv/
+node_modules/
+dist/
+build/
+*.pyc
