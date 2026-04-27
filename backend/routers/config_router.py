@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from typing import Any
-from backend.config import load_config, save_config, CONFIG_PATH
+from backend.config import load_config, save_config
 
 router = APIRouter()
 

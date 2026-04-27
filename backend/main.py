@@ -1,4 +1,3 @@
-import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -103,10 +102,12 @@ app.include_router(analytics_router, prefix="/api")
 app.include_router(planner_router, prefix="/api")
 app.include_router(reports_router, prefix="/api")
 
-FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
-if os.path.exists(FRONTEND_DIST):
-    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
+from backend.app_paths import get_frontend_dist
+
+_FRONTEND_DIST = get_frontend_dist()
+if _FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIST / "assets")), name="assets")
 
     @app.get("/{full_path:path}")
     def serve_frontend(full_path: str):
-        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+        return FileResponse(str(_FRONTEND_DIST / "index.html"))

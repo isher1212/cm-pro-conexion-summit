@@ -1,12 +1,14 @@
 import json
 import os
 from typing import Any
+from backend.app_paths import get_user_data_dir
 
-CONFIG_PATH = os.environ.get("CM_CONFIG_PATH", "config.json")
 
 def _get_config_path() -> str:
-    """Read config path dynamically so tests can override CM_CONFIG_PATH at runtime."""
-    return os.environ.get("CM_CONFIG_PATH", CONFIG_PATH)
+    env = os.environ.get("CM_CONFIG_PATH")
+    if env:
+        return env
+    return str(get_user_data_dir() / "config.json")
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "openai_api_key": "",
