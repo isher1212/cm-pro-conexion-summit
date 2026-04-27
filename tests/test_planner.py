@@ -173,3 +173,52 @@ def test_get_proposals_empty(tmp_path):
     conn = init_db(str(tmp_path / "test.db"))
     assert get_proposals(conn) == []
     conn.close()
+
+
+def test_planner_events_api():
+    import os, tempfile
+    tmp = os.path.join(tempfile.gettempdir(), "test_planner_cfg.json")
+    if os.path.exists(tmp): os.unlink(tmp)
+    os.environ["CM_CONFIG_PATH"] = tmp
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app)
+    r1 = client.post("/api/planner/events", json={
+        "title": "Demo Endeavor",
+        "date": "2026-05-10",
+        "description": "Presentación startups",
+        "event_type": "alianza",
+    })
+    assert r1.status_code == 200
+    r2 = client.get("/api/planner/events")
+    assert r2.status_code == 200
+    data = r2.json()
+    assert len(data["events"]) >= 1
+    assert data["events"][0]["title"] == "Demo Endeavor"
+
+
+def test_planner_proposals_api():
+    import os, tempfile
+    tmp = os.path.join(tempfile.gettempdir(), "test_planner2_cfg.json")
+    if os.path.exists(tmp): os.unlink(tmp)
+    os.environ["CM_CONFIG_PATH"] = tmp
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app)
+    r1 = client.post("/api/planner/proposals", json={
+        "topic": "IA en startups LATAM",
+        "format": "Carrusel",
+        "platform": "Instagram",
+        "suggested_date": "2026-05-12",
+        "caption_draft": "La IA está cambiando el juego",
+        "hashtags": "#IA #startups",
+        "status": "proposed",
+    })
+    assert r1.status_code == 200
+    r2 = client.get("/api/planner/proposals?status=proposed")
+    assert r2.status_code == 200
+    data = r2.json()
+    assert len(data["proposals"]) >= 1
+    pid = data["proposals"][0]["id"]
+    r3 = client.patch(f"/api/planner/proposals/{pid}/status", json={"status": "approved"})
+    assert r3.status_code == 200
