@@ -18,6 +18,7 @@ from backend.services.reports import (
     run_daily_intelligence_telegram, run_daily_trends_telegram,
     run_daily_email_job, run_weekly_email_job, run_weekly_telegram_job,
 )
+from backend.app_paths import get_frontend_dist
 
 
 def _schedule_intelligence_job():
@@ -101,8 +102,6 @@ app.include_router(trends_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(planner_router, prefix="/api")
 app.include_router(reports_router, prefix="/api")
-
-from backend.app_paths import get_frontend_dist
 
 _FRONTEND_DIST = get_frontend_dist()
 if _FRONTEND_DIST.exists():

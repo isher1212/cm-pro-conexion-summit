@@ -49,5 +49,5 @@ def test_get_base_dir_is_path():
 def test_run_module_importable():
     import ast
     import pathlib
-    src = pathlib.Path("run.py").read_text()
+    src = (pathlib.Path(__file__).parent.parent / "run.py").read_text()
     ast.parse(src)
