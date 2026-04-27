@@ -49,6 +49,7 @@ hiddenimports = [
     "backend.config",
     "backend.database",
     "backend.scheduler",
+    "backend.main",
 ]
 
 for pkg in ("fastapi", "starlette", "pydantic", "pydantic_core", "httpx", "anyio"):
