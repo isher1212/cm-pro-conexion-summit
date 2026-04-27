@@ -84,13 +84,15 @@ def _fetch_youtube_via_search(max_items: int = 5) -> list[dict]:
             timeout=15,
         )
         titles = re.findall(r'"title":\{"runs":\[\{"text":"([^"]{5,80})"\}', resp.text)
-        seen = []
+        seen = set()
+        unique = []
         for t in titles:
             if t not in seen:
-                seen.append(t)
-            if len(seen) >= max_items:
-                break
-        return [{"keyword": t, "platform": "YouTube"} for t in seen]
+                seen.add(t)
+                unique.append(t)
+                if len(unique) >= max_items:
+                    break
+        return [{"keyword": t, "platform": "YouTube"} for t in unique]
     except Exception as e:
         logger.warning(f"YouTube fallback scrape failed: {e}")
         return []
@@ -144,18 +146,11 @@ def analyze_trend(keyword: str, platform: str, openai_client: Any, brand_context
 
 # ── Storage ───────────────────────────────────────────────────────────────────
 
-def store_trend(conn: sqlite3.Connection, trend: dict) -> None:
-    """Store a trend. Ignores duplicate keyword+platform on the same day."""
+def store_trend(conn: sqlite3.Connection, trend: dict) -> bool:
+    """Store a trend. Returns True if inserted, False if duplicate (same keyword+platform+day)."""
     try:
-        today = datetime.now().strftime("%Y-%m-%d")
-        existing = conn.execute(
-            "SELECT id FROM trends WHERE keyword = ? AND platform = ? AND date(fetched_at) = ?",
-            (trend["keyword"], trend["platform"], today),
-        ).fetchone()
-        if existing:
-            return
-        conn.execute(
-            """INSERT INTO trends (keyword, platform, description, why_trending, how_to_apply, post_idea, fetched_at)
+        cursor = conn.execute(
+            """INSERT OR IGNORE INTO trends (keyword, platform, description, why_trending, how_to_apply, post_idea, fetched_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (
                 trend["keyword"],
@@ -168,8 +163,10 @@ def store_trend(conn: sqlite3.Connection, trend: dict) -> None:
             ),
         )
         conn.commit()
+        return cursor.rowcount > 0
     except Exception as e:
         logger.warning(f"Failed to store trend '{trend.get('keyword')}': {e}")
+        return False
 
 
 def get_trends(conn: sqlite3.Connection, limit: int = 20, platform: str = "") -> list[dict]:
@@ -205,10 +202,7 @@ def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any 
             analysis = analyze_trend(item["keyword"], item["platform"], openai_client, brand_context)
             item.update(analysis)
         item["fetched_at"] = datetime.now().isoformat()
-        before = _count_trends(conn)
-        store_trend(conn, item)
-        after = _count_trends(conn)
-        if after > before:
+        if store_trend(conn, item):
             stored_count += 1
 
     # YouTube Trending
@@ -218,14 +212,7 @@ def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any 
             analysis = analyze_trend(item["keyword"], item["platform"], openai_client, brand_context)
             item.update(analysis)
         item["fetched_at"] = datetime.now().isoformat()
-        before = _count_trends(conn)
-        store_trend(conn, item)
-        after = _count_trends(conn)
-        if after > before:
+        if store_trend(conn, item):
             stored_count += 1
 
     return stored_count
-
-
-def _count_trends(conn: sqlite3.Connection) -> int:
-    return conn.execute("SELECT COUNT(*) FROM trends").fetchone()[0]

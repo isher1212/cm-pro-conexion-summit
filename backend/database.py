@@ -75,6 +75,10 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
         );
     """)
     conn.commit()
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_trends_day ON trends(keyword, platform, date(fetched_at))"
+    )
+    conn.commit()
     return conn
 
 _conn: sqlite3.Connection | None = None
