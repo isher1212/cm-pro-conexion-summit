@@ -8,3 +8,17 @@ dist/
 build/
 *.pyc
 .pytest_cache/
+
+# PyInstaller build artifacts
+*.egg-info/
+
+# Additional Python
+*.pyo
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,116 @@
+name: Build CM Pro
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller==6.11.1
+
+      - name: Build executable
+        run: pyinstaller --noconfirm --log-level WARN cm_pro.spec
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CM-Pro-Windows
+          path: "dist/CM Pro.exe"
+          retention-days: 30
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller==6.11.1
+
+      - name: Build app bundle
+        run: pyinstaller --noconfirm --log-level WARN cm_pro.spec
+
+      - name: Create DMG
+        run: |
+          hdiutil create \
+            -volname "CM Pro" \
+            -srcfolder "dist/CM Pro.app" \
+            -ov \
+            -format UDZO \
+            "dist/CM Pro.dmg"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CM-Pro-macOS
+          path: "dist/CM Pro.dmg"
+          retention-days: 30
+
+  release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: CM-Pro-Windows
+          path: artifacts/
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: CM-Pro-macOS
+          path: artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
