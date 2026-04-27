@@ -86,3 +86,36 @@ def test_get_trends_returns_empty_when_no_data(tmp_path):
     trends = get_trends(conn, limit=10)
     assert trends == []
     conn.close()
+
+
+def test_trends_api_returns_list():
+    import os, tempfile
+    tmp = os.path.join(tempfile.gettempdir(), "test_trends_cfg.json")
+    if os.path.exists(tmp): os.unlink(tmp)
+    os.environ["CM_CONFIG_PATH"] = tmp
+    from fastapi.testclient import TestClient
+    import importlib
+    import backend.main
+    importlib.reload(backend.main)
+    from backend.main import app
+    client = TestClient(app)
+    response = client.get("/api/trends")
+    assert response.status_code == 200
+    data = response.json()
+    assert "trends" in data
+    assert "total" in data
+    assert isinstance(data["trends"], list)
+
+
+def test_trends_refresh_endpoint():
+    import os, tempfile
+    tmp = os.path.join(tempfile.gettempdir(), "test_trends_refresh_cfg.json")
+    if os.path.exists(tmp): os.unlink(tmp)
+    os.environ["CM_CONFIG_PATH"] = tmp
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app)
+    response = client.post("/api/trends/refresh")
+    assert response.status_code == 200
+    data = response.json()
+    assert "new_trends" in data
