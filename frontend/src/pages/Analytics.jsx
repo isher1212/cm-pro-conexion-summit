@@ -161,6 +161,135 @@ function MetricsForm({ onSaved }) {
   )
 }
 
+// ── Instagram Connect ─────────────────────────────────────────────────────────
+function InstagramConnect() {
+  const [csvType, setCsvType] = useState('account')
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+  const [metaStatus, setMetaStatus] = useState(null)
+  const [syncing, setSyncing] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/analytics/instagram/status')
+      .then(r => r.json())
+      .then(setMetaStatus)
+      .catch(() => {})
+  }, [])
+
+  async function handleCsvUpload(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    setImporting(true)
+    setImportResult(null)
+    const form = new FormData()
+    form.append('file', file)
+    try {
+      const res = await fetch(`/api/analytics/import/instagram-csv?file_type=${csvType}`, {
+        method: 'POST', body: form,
+      })
+      const data = await res.json()
+      setImportResult(data)
+    } catch {
+      setImportResult({ error: 'Error al importar' })
+    } finally {
+      setImporting(false)
+      e.target.value = ''
+    }
+  }
+
+  async function handleSync() {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/analytics/instagram/sync', { method: 'POST' })
+      const data = await res.json()
+      setImportResult(data)
+    } catch {
+      setImportResult({ error: 'Error al sincronizar' })
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <span style={{ fontSize: '18px' }}>📥</span>
+          <span style={{ fontWeight: '700', fontSize: '14px' }}>Importar CSV de Instagram</span>
+        </div>
+        <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>
+          Exporta desde Instagram → Panel Profesional → Exportar datos
+        </p>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          {['account', 'posts'].map(t => (
+            <button key={t} onClick={() => setCsvType(t)}
+              style={{ flex: 1, padding: '6px', borderRadius: '6px', border: '1.5px solid #6366f1',
+                fontSize: '12px', fontWeight: '600', cursor: 'pointer',
+                background: csvType === t ? '#6366f1' : 'white',
+                color: csvType === t ? 'white' : '#6366f1' }}>
+              {t === 'account' ? 'Cuenta (métricas)' : 'Posts individuales'}
+            </button>
+          ))}
+        </div>
+        <label style={{ display: 'block', background: '#f8f9fb', border: '1.5px dashed #cbd5e1',
+          borderRadius: '8px', padding: '14px', textAlign: 'center', cursor: 'pointer',
+          fontSize: '13px', color: '#475569' }}>
+          {importing ? 'Importando...' : '📂 Seleccionar archivo CSV'}
+          <input type="file" accept=".csv" onChange={handleCsvUpload}
+            style={{ display: 'none' }} disabled={importing} />
+        </label>
+        {importResult && !importResult.error && (
+          <div style={{ marginTop: '10px', background: '#dcfce7', borderRadius: '6px',
+            padding: '8px 12px', fontSize: '12px', color: '#166534' }}>
+            ✅ {importResult.imported} de {importResult.total} filas importadas
+          </div>
+        )}
+        {importResult?.error && (
+          <div style={{ marginTop: '10px', background: '#fee2e2', borderRadius: '6px',
+            padding: '8px 12px', fontSize: '12px', color: '#991b1b' }}>
+            ❌ {importResult.error}
+          </div>
+        )}
+      </div>
+
+      <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <span style={{ fontSize: '18px' }}>🔗</span>
+          <span style={{ fontWeight: '700', fontSize: '14px' }}>Meta Graph API</span>
+          {metaStatus && (
+            <span style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: '4px',
+              fontSize: '11px', fontWeight: '700',
+              background: metaStatus.configured ? '#dcfce7' : '#fef3c7',
+              color: metaStatus.configured ? '#166534' : '#92400e' }}>
+              {metaStatus.configured ? '✅ Activa' : '⏳ Pendiente'}
+            </span>
+          )}
+        </div>
+        <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>
+          {metaStatus?.configured
+            ? 'API configurada. Sincroniza para obtener los últimos datos.'
+            : 'Configura meta_access_token y meta_ig_user_id en Configuración para activar la sincronización automática.'}
+        </p>
+        {metaStatus?.configured ? (
+          <button onClick={handleSync} disabled={syncing}
+            style={{ background: '#6366f1', color: 'white', border: 'none', borderRadius: '8px',
+              padding: '8px 16px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', width: '100%' }}>
+            {syncing ? 'Sincronizando...' : '↻ Sincronizar ahora'}
+          </button>
+        ) : (
+          <div style={{ background: '#f8f9fb', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
+            <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>
+              <strong>Campos en Configuración:</strong><br/>
+              • meta_access_token<br/>
+              • meta_ig_user_id
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Analytics() {
   const [summary, setSummary] = useState([])
@@ -205,6 +334,8 @@ export default function Analytics() {
           <p className="text-gray-500 text-sm">Métricas de Instagram, TikTok y LinkedIn</p>
         </div>
       </div>
+
+      <InstagramConnect />
 
       <AnomalyAlert anomalies={anomalies} />
 
