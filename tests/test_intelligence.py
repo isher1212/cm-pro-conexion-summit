@@ -82,3 +82,50 @@ def test_duplicate_article_is_not_stored_twice(tmp_path):
     articles = get_articles(conn, limit=10)
     assert len(articles) == 1
     conn.close()
+
+
+def test_get_articles_endpoint_returns_list():
+    import os, tempfile
+    tmp = os.path.join(tempfile.gettempdir(), "test_intel_cfg.json")
+    if os.path.exists(tmp): os.unlink(tmp)
+    os.environ["CM_CONFIG_PATH"] = tmp
+    from fastapi.testclient import TestClient
+    # Force fresh import
+    import importlib, backend.main as m
+    importlib.reload(m)
+    from backend.main import app
+    client = TestClient(app)
+    response = client.get("/api/intelligence/articles")
+    assert response.status_code == 200
+    data = response.json()
+    assert "articles" in data
+    assert isinstance(data["articles"], list)
+    assert "total" in data
+
+
+def test_get_articles_with_search_filter():
+    import os, tempfile
+    tmp = os.path.join(tempfile.gettempdir(), "test_intel_search_cfg.json")
+    if os.path.exists(tmp): os.unlink(tmp)
+    os.environ["CM_CONFIG_PATH"] = tmp
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app)
+    response = client.get("/api/intelligence/articles?search=startup")
+    assert response.status_code == 200
+    data = response.json()
+    assert "articles" in data
+
+
+def test_refresh_endpoint_exists():
+    import os, tempfile
+    tmp = os.path.join(tempfile.gettempdir(), "test_intel_refresh_cfg.json")
+    if os.path.exists(tmp): os.unlink(tmp)
+    os.environ["CM_CONFIG_PATH"] = tmp
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app)
+    response = client.post("/api/intelligence/refresh")
+    assert response.status_code == 200
+    data = response.json()
+    assert "new_articles" in data
