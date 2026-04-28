@@ -123,11 +123,12 @@ def generate_images(
     brand_context: str = "",
     n: int = 1,
     image_input_urls: list[str] | None = None,
+    custom_prompt: str | None = None,
 ) -> list[str]:
     """Generate n images via Kie AI. Pass image_input_urls for image-to-image mode."""
     aspect_ratio = get_aspect_ratio(platform)
     all_urls: list[str] = []
-    prompt = build_image_prompt(topic, platform, caption, brand_context, extra_specs)
+    prompt = custom_prompt or build_image_prompt(topic, platform, caption, brand_context, extra_specs)
     for _ in range(n):
         task_id = _create_task(prompt, model, resolution, aspect_ratio, api_key, image_input_urls)
         if not task_id:
@@ -246,6 +247,45 @@ PLATFORM: [Instagram|LinkedIn|TikTok]
 DATE: [{suggested}]
 CAPTION: [caption borrador completo, máx 3 líneas, tono de Conexión Summit]
 HASHTAGS: [#hashtag1 #hashtag2 #hashtag3 máx 5]"""
+
+
+def generate_image_prompt_ai(
+    topic: str,
+    platform: str,
+    caption: str,
+    brand_context: str = "",
+    extra_specs: str = "",
+    openai_client: Any = None,
+) -> str:
+    """Use OpenAI to generate a rich image prompt for Kie AI."""
+    if not openai_client:
+        return build_image_prompt(topic, platform, caption, brand_context, extra_specs)
+    try:
+        aspect = _ASPECT_RATIO.get(platform, "1:1")
+        system = "You are an expert at writing prompts for AI image generation (Kie AI). Generate detailed, visual, effective prompts in English."
+        user_msg = f"""Create a detailed image generation prompt for {platform} (aspect ratio {aspect}).
+Topic: {topic}
+Post caption: {caption}
+{"Brand context: " + brand_context if brand_context else ""}
+{"Additional specs: " + extra_specs if extra_specs else ""}
+
+Requirements: photographic style, colors, composition, lighting. NO text in image. Professional social media aesthetic. Max 100 words. Return ONLY the prompt, no explanations."""
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user_msg}],
+            max_tokens=200,
+            temperature=0.7,
+        )
+        try:
+            from backend.services.ai_usage import log_openai_usage
+            log_openai_usage("gpt-4o-mini", response, context="images/generate-prompt")
+        except Exception:
+            pass
+        result = response.choices[0].message.content
+        return result.strip() if result else build_image_prompt(topic, platform, caption, brand_context, extra_specs)
+    except Exception as e:
+        logger.warning(f"generate_image_prompt_ai failed: {e}")
+        return build_image_prompt(topic, platform, caption, brand_context, extra_specs)
 
 
 def generate_proposal_from_article(

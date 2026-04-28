@@ -54,6 +54,7 @@ def generate_proposal_images(body: dict):
         extra_specs=body.get("extra_specs", ""),
         brand_context=config.get("brand_context", ""),
         n=n,
+        custom_prompt=body.get("custom_prompt") or None,
     )
 
     proposal_id = body.get("proposal_id")
@@ -66,6 +67,23 @@ def generate_proposal_images(body: dict):
         update_proposal(get_db(), proposal_id, {"image_urls": json.dumps(urls)})
 
     return {"urls": urls, "proposal_id": proposal_id}
+
+
+@router.post("/images/generate-prompt")
+def preview_image_prompt(body: dict):
+    """Generate an AI-optimized prompt for Kie AI without generating the image."""
+    config = load_config()
+    client = _openai(config)
+    from backend.services.image_gen import generate_image_prompt_ai
+    prompt = generate_image_prompt_ai(
+        topic=body.get("topic", ""),
+        platform=body.get("platform", "Instagram"),
+        caption=body.get("caption_draft", ""),
+        brand_context=config.get("brand_context", ""),
+        extra_specs=body.get("extra_specs", ""),
+        openai_client=client,
+    )
+    return {"prompt": prompt}
 
 
 @router.post("/images/video-script")

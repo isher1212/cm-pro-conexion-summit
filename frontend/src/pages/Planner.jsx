@@ -51,6 +51,9 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
   const [imgCount, setImgCount] = useState(2)
   const [imgGenerating, setImgGenerating] = useState(false)
   const [imgError, setImgError] = useState('')
+  const [imgPrompt, setImgPrompt] = useState('')
+  const [imgPromptLoading, setImgPromptLoading] = useState(false)
+  const [imgStep, setImgStep] = useState(1)
   const [imgUrls, setImgUrls] = useState(() => {
     try { return JSON.parse(proposal.image_urls || '[]') } catch { return [] }
   })
@@ -108,6 +111,28 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
     }
   }
 
+  async function handleGeneratePrompt() {
+    setImgPromptLoading(true)
+    try {
+      const r = await fetch('/api/images/generate-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: proposal.topic,
+          platform: proposal.platform,
+          caption_draft: proposal.caption_draft,
+          extra_specs: imgSpecs,
+        }),
+      })
+      if (r.ok) {
+        const d = await r.json()
+        setImgPrompt(d.prompt || '')
+        setImgStep(2)
+      }
+    } catch {}
+    finally { setImgPromptLoading(false) }
+  }
+
   async function handleGenerateImages() {
     setImgGenerating(true)
     setImgError('')
@@ -121,6 +146,7 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
           platform: proposal.platform,
           caption_draft: proposal.caption_draft,
           extra_specs: imgSpecs,
+          custom_prompt: imgPrompt,
           n: isCarousel ? Math.max(2, Math.min(10, imgCount)) : 1,
         }),
       })
@@ -134,6 +160,8 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
       } else if (Array.isArray(data.urls) && data.urls.length) {
         setImgUrls(data.urls)
         setImgPanel(false)
+        setImgStep(1)
+        setImgPrompt('')
       }
     } catch {
       setImgError('Error de conexión al generar imagen.')
@@ -255,50 +283,78 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
           {/* Image panel */}
           <div className="mt-3 pt-3 border-t border-gray-50">
             {imgUrls.length > 0 && (
-              <div className="flex gap-2 flex-wrap mb-2">
+              <div className="space-y-2 mb-2">
                 {imgUrls.map((url) => (
                   <div key={url} className="relative group">
-                    <img src={url} alt="" className="w-20 h-20 object-cover rounded-lg border border-gray-100" />
+                    <img src={url} alt="" className="w-full max-h-56 object-contain rounded-xl border border-gray-100 bg-gray-50" />
                     <a href={url} target="_blank" rel="noreferrer"
-                      className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-lg transition-colors" />
+                      className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors flex items-end justify-end p-2">
+                      <span className="text-xs bg-black/50 text-white px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                        Ver original ↗
+                      </span>
+                    </a>
                   </div>
                 ))}
               </div>
             )}
             {imgPanel ? (
               <div className="space-y-2">
-                <textarea
-                  value={imgSpecs}
-                  onChange={e => setImgSpecs(e.target.value)}
-                  placeholder="Especificaciones adicionales (opcional): colores, estilo, elementos visuales..."
-                  rows={2}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs resize-none"
-                />
-                {isCarousel && (
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-500">Imágenes del carrusel:</label>
-                    <input
-                      type="number" min={2} max={10} value={imgCount}
-                      onChange={e => setImgCount(parseInt(e.target.value))}
-                      className="w-16 border border-gray-200 rounded px-2 py-1 text-xs"
+                {imgStep === 1 && (
+                  <>
+                    <textarea
+                      value={imgSpecs}
+                      onChange={e => setImgSpecs(e.target.value)}
+                      placeholder="Especificaciones adicionales (opcional): colores, estilo, elementos visuales..."
+                      rows={2}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs resize-none"
                     />
-                  </div>
+                    {isCarousel && (
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-500">Imágenes del carrusel:</label>
+                        <input
+                          type="number" min={2} max={10} value={imgCount}
+                          onChange={e => setImgCount(parseInt(e.target.value))}
+                          className="w-16 border border-gray-200 rounded px-2 py-1 text-xs"
+                        />
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <button onClick={handleGeneratePrompt} disabled={imgPromptLoading}
+                        className="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">
+                        {imgPromptLoading ? '⏳ Generando prompt...' : 'Generar prompt →'}
+                      </button>
+                      <button onClick={() => { setImgPanel(false); setImgStep(1); setImgPrompt('') }}
+                        className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+                    </div>
+                  </>
                 )}
-                <div className="flex gap-2">
-                  <button onClick={handleGenerateImages} disabled={imgGenerating}
-                    className="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">
-                    {imgGenerating ? '⏳ Generando...' : '✨ Generar'}
-                  </button>
-                  <button onClick={() => setImgPanel(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
-                </div>
-                {imgError && <p className="text-xs text-red-500">{imgError}</p>}
+                {imgStep === 2 && (
+                  <>
+                    <label className="text-xs text-gray-500 font-medium block">Prompt para Kie AI (puedes editar):</label>
+                    <textarea
+                      value={imgPrompt}
+                      onChange={e => setImgPrompt(e.target.value)}
+                      rows={4}
+                      className="w-full border border-violet-200 rounded-lg px-3 py-2 text-xs resize-none bg-violet-50"
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={handleGenerateImages} disabled={imgGenerating}
+                        className="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">
+                        {imgGenerating ? '⏳ Generando...' : '✨ Generar imagen'}
+                      </button>
+                      <button onClick={() => setImgStep(1)}
+                        className="text-xs text-gray-400 hover:text-gray-600">← Atrás</button>
+                    </div>
+                    {imgError && <p className="text-xs text-red-500">{imgError}</p>}
+                  </>
+                )}
               </div>
             ) : (
               <div className="flex gap-2 items-center flex-wrap">
                 {imgUrls.length === 0 ? (
                   <button onClick={() => setImgPanel(true)}
-                    className="flex-1 min-w-[200px] bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600 text-white text-xs font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-all">
-                    ✨ Generar contenido con IA
+                    className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-1">
+                    🖼 Generar imagen
                   </button>
                 ) : (
                   <button onClick={() => setImgPanel(true)}
