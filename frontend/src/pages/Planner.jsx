@@ -56,6 +56,46 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
   })
 
   const isCarousel = proposal.format === 'Carrusel'
+  const isVideo = ['Reel', 'Video', 'TikTok'].includes(proposal.format)
+  const [script, setScript] = useState(() => {
+    try { return JSON.parse(proposal.video_script || '{}') } catch { return {} }
+  })
+  const [scriptGenerating, setScriptGenerating] = useState(false)
+  const [scriptOpen, setScriptOpen] = useState(false)
+  const [scriptError, setScriptError] = useState('')
+
+  async function handleGenerateScript() {
+    setScriptGenerating(true)
+    setScriptError('')
+    try {
+      const res = await fetch('/api/images/video-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposal_id: proposal.id,
+          topic: proposal.topic,
+          platform: proposal.platform,
+          caption_draft: proposal.caption_draft,
+          hashtags: proposal.hashtags,
+        }),
+      })
+      if (!res.ok) {
+        setScriptError('Error al generar guión. Verifique la API key de OpenAI.')
+        return
+      }
+      const data = await res.json()
+      if (data.error) {
+        setScriptError(data.error)
+      } else if (data.hook) {
+        setScript(data)
+        setScriptOpen(true)
+      }
+    } catch {
+      setScriptError('Error de conexión al generar guión.')
+    } finally {
+      setScriptGenerating(false)
+    }
+  }
 
   async function handleGenerateImages() {
     setImgGenerating(true)
@@ -238,12 +278,42 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
                 {imgError && <p className="text-xs text-red-500">{imgError}</p>}
               </div>
             ) : (
-              <button onClick={() => setImgPanel(true)}
-                className="text-xs text-violet-600 hover:text-violet-800 font-medium">
-                {imgUrls.length ? '🔄 Regenerar imagen' : '🖼 Generar imagen'}
-              </button>
+              <>
+                <button onClick={() => setImgPanel(true)}
+                  className="text-xs text-violet-600 hover:text-violet-800 font-medium">
+                  {imgUrls.length ? '🔄 Regenerar imagen' : '🖼 Generar imagen'}
+                </button>
+                {isVideo && (
+                  <button onClick={handleGenerateScript} disabled={scriptGenerating}
+                    className="ml-3 text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50">
+                    {scriptGenerating ? '⏳ Generando guión...' : '🎬 Generar guión'}
+                  </button>
+                )}
+                {scriptError && <p className="text-xs text-red-500 mt-1">{scriptError}</p>}
+              </>
             )}
           </div>
+
+          {isVideo && scriptOpen && script.hook && (
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-blue-800">Guión de video</span>
+                <button onClick={() => setScriptOpen(false)} className="text-blue-400 hover:text-blue-600 text-lg leading-none">×</button>
+              </div>
+              {[
+                { key: 'hook', label: '🎣 Hook' },
+                { key: 'desarrollo', label: '📖 Desarrollo' },
+                { key: 'cta', label: '📢 CTA' },
+                { key: 'voz_en_off', label: '🎙 Voz en off' },
+              ].map(({ key, label }) => script[key] ? (
+                <div key={key}>
+                  <p className="text-xs font-medium text-blue-700 mb-0.5">{label}</p>
+                  <p className="text-xs text-blue-900 leading-relaxed">{script[key]}</p>
+                </div>
+              ) : null)}
+              {script.duracion && <p className="text-xs text-blue-400 mt-1">⏱ {script.duracion}s</p>}
+            </div>
+          )}
     </div>
   )
 }
