@@ -10,6 +10,7 @@ import Settings from './pages/Settings'
 import Saved from './pages/Saved'
 import Library from './pages/Library'
 import Competitors from './pages/Competitors'
+import Templates from './pages/Templates'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/planner" element={<Planner />} />
           <Route path="/library" element={<Library />} />
           <Route path="/competitors" element={<Competitors />} />
+          <Route path="/templates" element={<Templates />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

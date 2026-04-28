@@ -199,6 +199,57 @@ export default function Settings() {
           </div>
         </section>
 
+        {/* Fuentes adicionales */}
+        <section>
+          <h2 className="text-base font-semibold text-gray-700 mb-4 pb-2 border-b">Fuentes adicionales (Reddit, foros, etc.)</h2>
+          <p className="text-xs text-gray-500 mb-3">Agrega feeds RSS adicionales. Ej: <code>https://www.reddit.com/r/startups/.rss</code></p>
+          <div className="space-y-2">
+            {(cfg.additional_sources || []).map((src, idx) => (
+              <div key={idx} className="flex gap-2 items-center bg-gray-50 rounded-lg p-2">
+                <input type="checkbox" checked={src.active !== false}
+                  onChange={e => {
+                    const arr = [...(cfg.additional_sources || [])]
+                    arr[idx] = { ...arr[idx], active: e.target.checked }
+                    updateField('additional_sources', arr)
+                  }}
+                  className="accent-indigo-600" />
+                <input value={src.name || ''} placeholder="Nombre"
+                  onChange={e => {
+                    const arr = [...(cfg.additional_sources || [])]
+                    arr[idx] = { ...arr[idx], name: e.target.value }
+                    updateField('additional_sources', arr)
+                  }}
+                  className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm" />
+                <input value={src.url || ''} placeholder="URL del feed RSS"
+                  onChange={e => {
+                    const arr = [...(cfg.additional_sources || [])]
+                    arr[idx] = { ...arr[idx], url: e.target.value }
+                    updateField('additional_sources', arr)
+                  }}
+                  className="flex-[2] border border-gray-200 rounded px-2 py-1 text-sm" />
+                <select value={src.category || 'Global'}
+                  onChange={e => {
+                    const arr = [...(cfg.additional_sources || [])]
+                    arr[idx] = { ...arr[idx], category: e.target.value }
+                    updateField('additional_sources', arr)
+                  }}
+                  className="border border-gray-200 rounded px-2 py-1 text-sm">
+                  <option>Colombia</option>
+                  <option>LATAM</option>
+                  <option>Global</option>
+                </select>
+                <button type="button" onClick={() => {
+                  const arr = (cfg.additional_sources || []).filter((_, i) => i !== idx)
+                  updateField('additional_sources', arr)
+                }} className="text-red-300 hover:text-red-500 px-1">×</button>
+              </div>
+            ))}
+            <button type="button" onClick={() => {
+              updateField('additional_sources', [...(cfg.additional_sources || []), { name: '', url: '', active: true, category: 'Global' }])
+            }} className="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar fuente</button>
+          </div>
+        </section>
+
         {/* Pilares de contenido */}
         <section>
           <h2 className="text-base font-semibold text-gray-700 mb-4 pb-2 border-b">Pilares de contenido</h2>
