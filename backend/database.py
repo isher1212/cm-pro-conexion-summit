@@ -140,6 +140,18 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         conn.commit()
     except Exception:
         pass
+    # Phase 11 migration: relevance_score on articles
+    try:
+        conn.execute("ALTER TABLE articles ADD COLUMN relevance_score INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass
+    # Phase 11 migration: trend source URL
+    try:
+        conn.execute("ALTER TABLE trends ADD COLUMN source_url TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 _conn: sqlite3.Connection | None = None

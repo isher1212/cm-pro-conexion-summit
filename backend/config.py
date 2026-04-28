@@ -34,6 +34,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "max_articles_age_days": 30,
     "max_trends_google": 5,
     "max_trends_youtube": 5,
+    "count_articles_colombia": 5,
+    "count_articles_latam": 5,
+    "count_articles_global": 5,
+    "trend_keywords_tiktok": ["tiktok viral", "trending tiktok"],
+    "trend_keywords_linkedin": ["liderazgo empresarial", "tendencias laborales"],
+    "max_trends_tiktok": 3,
+    "max_trends_linkedin": 3,
     "rss_sources": [
         {"name": "iNNpulsa Colombia", "url": "https://innpulsacolombia.com/feed", "active": True, "category": "Colombia"},
         {"name": "Endeavor Colombia", "url": "https://endeavor.org.co/feed", "active": True, "category": "Colombia"},
