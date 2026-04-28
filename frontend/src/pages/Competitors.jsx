@@ -15,6 +15,37 @@ export default function Competitors() {
   const [form, setForm] = useState(EMPTY)
   const [editing, setEditing] = useState(null)
 
+  const [showSuggest, setShowSuggest] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestions, setSuggestions] = useState([])
+  const [suggestCategory, setSuggestCategory] = useState('')
+  const [suggestScope, setSuggestScope] = useState('national')
+
+  async function fetchSuggestions() {
+    setSuggesting(true); setSuggestions([])
+    try {
+      const r = await fetch('/api/competitors/suggest', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: suggestScope, category: suggestCategory }),
+      })
+      const data = await r.json()
+      setSuggestions(data.suggestions || [])
+    } finally { setSuggesting(false) }
+  }
+
+  async function addSuggestion(s) {
+    await fetch('/api/competitors', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: s.name, scope: suggestScope, category: s.category || '',
+        instagram_handle: s.instagram_handle || '', linkedin_handle: s.linkedin_handle || '',
+        website: s.website || '', notes: s.why || '', active: true,
+      }),
+    })
+    setSuggestions(prev => prev.filter(x => x.name !== s.name))
+    fetchAll()
+  }
+
   const fetchAll = useCallback(async () => {
     const params = new URLSearchParams()
     if (scope) params.set('scope', scope)
@@ -42,7 +73,7 @@ export default function Competitors() {
   }
 
   async function del(id) {
-    if (!confirm('¿Eliminar este competidor y sus posts?')) return
+    if (!confirm('¿Eliminar este referente y sus posts?')) return
     await fetch(`/api/competitors/${id}`, { method: 'DELETE' })
     fetchAll()
   }
@@ -56,13 +87,61 @@ export default function Competitors() {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-bold text-gray-900">Competencia</h1>
-        <button onClick={() => { setShowForm(v => !v); setForm(EMPTY); setEditing(null) }}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
-          <Plus size={14} /> Agregar
-        </button>
+        <h1 className="text-2xl font-bold text-gray-900">Referentes</h1>
+        <div className="flex gap-2">
+          <button onClick={() => setShowSuggest(v => !v)}
+            className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
+            <Sparkles size={14} /> Sugerir con IA
+          </button>
+          <button onClick={() => { setShowForm(v => !v); setForm(EMPTY); setEditing(null) }}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
+            <Plus size={14} /> Agregar
+          </button>
+        </div>
       </div>
-      <p className="text-gray-500 text-sm mb-6">Marcas y referentes que vale la pena monitorear ({items.length})</p>
+      <p className="text-gray-500 text-sm mb-4">Marcas y referentes que vale la pena seguir e inspirarse ({items.length})</p>
+
+      {showSuggest && (
+        <div className="bg-white border border-violet-100 rounded-xl p-4 mb-4 space-y-3">
+          <h3 className="text-sm font-semibold text-violet-700">✨ Sugerir referentes con IA</h3>
+          <div className="flex gap-2 items-center flex-wrap">
+            <select value={suggestScope} onChange={e => setSuggestScope(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+              <option value="national">Nacional</option>
+              <option value="international">Internacional</option>
+            </select>
+            <input value={suggestCategory} onChange={e => setSuggestCategory(e.target.value)}
+              placeholder="Categoría/nicho (opcional, ej: aceleradoras, eventos startup)"
+              className="flex-1 min-w-[200px] border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            <button onClick={fetchSuggestions} disabled={suggesting}
+              className="bg-violet-600 hover:bg-violet-700 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50">
+              {suggesting ? '⏳ Buscando...' : 'Buscar'}
+            </button>
+          </div>
+          {suggestions.length > 0 && (
+            <div className="space-y-2 mt-3">
+              {suggestions.map((s, i) => (
+                <div key={i} className="flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-800">{s.name}</p>
+                    {s.category && <p className="text-xs text-indigo-600">{s.category}</p>}
+                    {s.why && <p className="text-xs text-gray-600 mt-1">{s.why}</p>}
+                    <div className="flex gap-2 mt-1 text-xs text-gray-400 flex-wrap">
+                      {s.instagram_handle && <span>@{s.instagram_handle}</span>}
+                      {s.linkedin_handle && <span>· {s.linkedin_handle}</span>}
+                      {s.website && <span>· {s.website}</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => addSuggestion(s)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap">
+                    + Agregar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-2 mb-4 flex-wrap">
         {[{ val: '', label: 'Todos' }, ...SCOPES].map(s => (
@@ -75,7 +154,7 @@ export default function Competitors() {
 
       {showForm && (
         <div className="bg-white border border-gray-100 rounded-xl p-4 mb-4 space-y-3">
-          <h3 className="text-sm font-semibold text-gray-700">{editing ? 'Editar competidor' : 'Nuevo competidor'}</h3>
+          <h3 className="text-sm font-semibold text-gray-700">{editing ? 'Editar referente' : 'Nuevo referente'}</h3>
           <div className="grid grid-cols-2 gap-3">
             <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
               placeholder="Nombre" className="border border-gray-200 rounded-lg px-3 py-2 text-sm" />
@@ -106,7 +185,7 @@ export default function Competitors() {
       )}
 
       <div className="space-y-3">
-        {items.length === 0 && <p className="text-sm text-gray-400">Aún no hay competidores. Agrega marcas nacionales que compitan o referentes internacionales para inspirarte.</p>}
+        {items.length === 0 && <p className="text-sm text-gray-400">Aún no hay referentes. Agrégalos manualmente o pide sugerencias a la IA.</p>}
         {items.map(it => <CompetitorCard key={it.id} item={it} onEdit={() => startEdit(it)} onDelete={() => del(it.id)} />)}
       </div>
     </div>

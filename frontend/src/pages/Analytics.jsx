@@ -338,9 +338,6 @@ export default function Analytics() {
   const [activePlatform, setActivePlatform] = useState('Instagram')
   const [compare, setCompare] = useState(null)
   const [heatmap, setHeatmap] = useState([])
-  const [sentInput, setSentInput] = useState('')
-  const [sentResult, setSentResult] = useState(null)
-  const [sentLoading, setSentLoading] = useState(false)
   const [sentHistory, setSentHistory] = useState([])
 
   useEffect(() => {
@@ -376,24 +373,6 @@ export default function Analytics() {
   }, [activePlatform])
 
   useEffect(() => { fetchAll() }, [fetchAll])
-
-  async function runSentiment() {
-    const texts = sentInput.split('\n').map(s => s.trim()).filter(Boolean)
-    if (!texts.length) return
-    setSentLoading(true); setSentResult(null)
-    try {
-      const r = await fetch('/api/analytics/analyze-sentiment', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texts, source: 'manual' }),
-      })
-      const data = await r.json()
-      setSentResult(data)
-      if (!data.error) {
-        const r2 = await fetch('/api/analytics/sentiment-history?limit=10').then(rr => rr.json())
-        setSentHistory(Array.isArray(r2) ? r2 : [])
-      }
-    } finally { setSentLoading(false) }
-  }
 
   const currentMetrics = summary.find(m => m.platform === activePlatform)
 
@@ -496,37 +475,11 @@ export default function Analytics() {
         </section>
       )}
 
+      {/* Sentimiento automático */}
       <section className="bg-white border border-gray-100 rounded-xl p-5 mb-6">
-        <h2 className="text-base font-semibold text-gray-700 mb-1">Análisis de sentimiento</h2>
-        <p className="text-xs text-gray-400 mb-3">Pega comentarios de redes sociales (uno por línea) y la IA los clasifica.</p>
-        <textarea value={sentInput} onChange={e => setSentInput(e.target.value)}
-          rows={5}
-          placeholder={"Genial ese evento!\nNo me gustó la organización\nQué buena info, gracias..."}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-        <button onClick={runSentiment} disabled={sentLoading || !sentInput.trim()}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50">
-          {sentLoading ? '⏳ Analizando...' : '✨ Analizar'}
-        </button>
-
-        {sentResult && !sentResult.error && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-            <div className="flex gap-4 mb-3 flex-wrap">
-              <span className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded-full">😊 {sentResult.positive_count} positivos</span>
-              <span className="text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-full">😐 {sentResult.neutral_count} neutros</span>
-              <span className="text-sm bg-red-50 text-red-700 px-3 py-1 rounded-full">😞 {sentResult.negative_count} negativos</span>
-            </div>
-            <p className="text-sm text-gray-700 mb-2">{sentResult.summary}</p>
-            {Array.isArray(sentResult.top_themes) && sentResult.top_themes.length > 0 && (
-              <div className="flex gap-2 flex-wrap">
-                {sentResult.top_themes.map((t, i) => (
-                  <span key={i} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full">{t}</span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        {sentResult?.error && <p className="text-xs text-red-500 mt-2">{sentResult.error}</p>}
-
+        <h2 className="text-base font-semibold text-gray-700 mb-1">Sentimiento de comentarios</h2>
+        <p className="text-xs text-gray-400 mb-3">Analiza automáticamente los comentarios de tus posts via Meta Graph API.</p>
+        <SentimentByPost />
         {sentHistory.length > 0 && (
           <details className="mt-4">
             <summary className="text-sm text-gray-500 cursor-pointer">Histórico ({sentHistory.length})</summary>
@@ -534,7 +487,7 @@ export default function Analytics() {
               {sentHistory.map(h => (
                 <div key={h.id} className="bg-gray-50 rounded-lg px-3 py-2 text-xs">
                   <div className="flex justify-between text-gray-500">
-                    <span>{h.created_at ? new Date(h.created_at).toLocaleDateString('es-CO') : ''}</span>
+                    <span>{h.created_at ? new Date(h.created_at).toLocaleDateString('es-CO') : ''} · {h.source}</span>
                     <span>😊 {h.positive_count} · 😐 {h.neutral_count} · 😞 {h.negative_count}</span>
                   </div>
                   <p className="text-gray-700 mt-1">{h.summary}</p>
@@ -624,6 +577,64 @@ export default function Analytics() {
           <p className="text-gray-400 text-sm">Usa el formulario para ingresar las métricas de la semana</p>
         </div>
       )}
+    </div>
+  )
+}
+
+function SentimentByPost() {
+  const [posts, setPosts] = useState([])
+  const [selected, setSelected] = useState('')
+  const [result, setResult] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/analytics/posts?limit=50').then(r => r.json()).then(d => setPosts(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [])
+
+  async function run() {
+    if (!selected) return
+    setLoading(true); setResult(null)
+    try {
+      const r = await fetch(`/api/analytics/sentiment-post/${selected}`, { method: 'POST' })
+      setResult(await r.json())
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div>
+      <div className="flex gap-2 items-center flex-wrap mb-3">
+        <select value={selected} onChange={e => setSelected(e.target.value)}
+          className="flex-1 max-w-md border border-gray-200 rounded-lg px-3 py-2 text-sm">
+          <option value="">Elige un post...</option>
+          {posts.map(p => (
+            <option key={p.id} value={p.id}>
+              {(p.post_description || '(sin descripción)').slice(0, 80)}{(p.post_description || '').length > 80 ? '...' : ''} · {p.platform}
+            </option>
+          ))}
+        </select>
+        <button onClick={run} disabled={loading || !selected}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50">
+          {loading ? '⏳ Analizando...' : '✨ Analizar'}
+        </button>
+      </div>
+      {result && !result.error && (
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+          <div className="flex gap-4 mb-3 flex-wrap">
+            <span className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded-full">😊 {result.positive_count} positivos</span>
+            <span className="text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-full">😐 {result.neutral_count} neutros</span>
+            <span className="text-sm bg-red-50 text-red-700 px-3 py-1 rounded-full">😞 {result.negative_count} negativos</span>
+          </div>
+          <p className="text-sm text-gray-700 mb-2">{result.summary}</p>
+          {Array.isArray(result.top_themes) && result.top_themes.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              {result.top_themes.map((t, i) => (
+                <span key={i} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full">{t}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {result?.error && <p className="text-xs text-red-500 mt-2">{result.error}</p>}
     </div>
   )
 }

@@ -11,7 +11,7 @@ const links = [
   { to: '/planner', icon: Calendar, label: 'Parrilla' },
   { to: '/library', icon: Images, label: 'Galería' },
   { to: '/templates', icon: FileText, label: 'Plantillas' },
-  { to: '/competitors', icon: Target, label: 'Competencia' },
+  { to: '/competitors', icon: Target, label: 'Referentes' },
   { to: '/reports', icon: Mail, label: 'Reportes' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
 ]
