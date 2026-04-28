@@ -57,6 +57,7 @@ hiddenimports = [
     "backend.services.analytics",
     "backend.services.planner",
     "backend.services.reports",
+    "backend.services.sentiment",
     "backend.app_paths",
     "backend.config",
     "backend.database",

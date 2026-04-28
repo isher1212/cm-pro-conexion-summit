@@ -220,3 +220,23 @@ def compare_months():
             "followers_pct": delta_pct(cur["followers"], prev["followers"]),
         },
     }
+
+
+@router.post("/analytics/analyze-sentiment")
+def analyze_sentiment_endpoint(body: dict):
+    from backend.services.sentiment import analyze_sentiment
+    config = load_config()
+    key = config.get("openai_api_key", "")
+    if not key:
+        return {"error": "OpenAI API key no configurada"}
+    from openai import OpenAI
+    client = OpenAI(api_key=key)
+    texts = body.get("texts", [])
+    source = body.get("source", "manual")
+    return analyze_sentiment(texts, source, client, config.get("brand_context", ""))
+
+
+@router.get("/analytics/sentiment-history")
+def sentiment_history(limit: int = 30):
+    from backend.services.sentiment import list_sentiment_history
+    return list_sentiment_history(limit)
