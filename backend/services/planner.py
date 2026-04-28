@@ -1,9 +1,16 @@
+import hashlib
 import logging
+import re
 import sqlite3
 from datetime import datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _proposal_hash(topic: str, platform: str) -> str:
+    txt = re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', '', (topic + " " + platform).lower())).strip()
+    return hashlib.md5(txt.encode("utf-8")).hexdigest()[:16]
 
 
 # ── Events ────────────────────────────────────────────────────────────────────
@@ -51,10 +58,25 @@ def delete_event(conn: sqlite3.Connection, event_id: int) -> None:
 
 def store_proposal(conn: sqlite3.Connection, proposal: dict) -> None:
     try:
+        h = _proposal_hash(proposal.get("topic", ""), proposal.get("platform", ""))
+        proposal["content_hash"] = h
+
+        from backend.config import load_config
+        config = load_config()
+        window = config.get("duplicate_window_days", 7)
+        if not proposal.get("force", False):
+            existing = conn.execute(
+                "SELECT id FROM content_proposals WHERE content_hash = ? AND created_at >= datetime('now', ?) LIMIT 1",
+                (h, f"-{window} days"),
+            ).fetchone()
+            if existing:
+                logger.info(f"Skipping duplicate proposal: {proposal.get('topic')}")
+                return
+
         conn.execute(
             """INSERT INTO content_proposals
-               (topic, format, platform, suggested_date, caption_draft, hashtags, status, created_at, image_urls, video_script)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (topic, format, platform, suggested_date, caption_draft, hashtags, status, created_at, image_urls, video_script, content_hash)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 proposal["topic"],
                 proposal.get("format", ""),
@@ -66,6 +88,7 @@ def store_proposal(conn: sqlite3.Connection, proposal: dict) -> None:
                 proposal.get("created_at", datetime.now().isoformat()),
                 proposal.get("image_urls", "[]"),
                 proposal.get("video_script", ""),
+                h,
             ),
         )
         conn.commit()

@@ -1,9 +1,22 @@
+import hashlib
 import logging
+import re
 import sqlite3
 from datetime import datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_text(text: str) -> str:
+    if not text:
+        return ""
+    return re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', '', text.lower())).strip()
+
+
+def _content_hash(*parts: str) -> str:
+    combined = "|".join(_normalize_text(p) for p in parts if p)
+    return hashlib.md5(combined.encode("utf-8")).hexdigest()[:16]
 
 
 # ── Google Trends ──────────────────────────────────────────────────────────────
@@ -170,12 +183,25 @@ def analyze_trend(keyword: str, platform: str, openai_client: Any, brand_context
 # ── Storage ───────────────────────────────────────────────────────────────────
 
 def store_trend(conn: sqlite3.Connection, trend: dict) -> bool:
-    """Store a trend. Returns True if inserted, False if duplicate (same keyword+platform+day)."""
+    """Store a trend. Returns True if inserted, False if duplicate (same keyword+platform+day or content_hash)."""
     try:
+        h = _content_hash(trend.get("keyword", ""), trend.get("platform", ""))
+        trend["content_hash"] = h
+
+        from backend.config import load_config
+        config = load_config()
+        window = config.get("duplicate_window_days", 7)
+        existing = conn.execute(
+            "SELECT id FROM trends WHERE content_hash = ? AND fetched_at >= datetime('now', ?) LIMIT 1",
+            (h, f"-{window} days"),
+        ).fetchone()
+        if existing:
+            return False
+
         cursor = conn.execute(
             """INSERT OR IGNORE INTO trends
-               (keyword, platform, description, why_trending, how_to_apply, post_idea, source_url, fetched_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               (keyword, platform, description, why_trending, how_to_apply, post_idea, source_url, fetched_at, content_hash)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 trend["keyword"],
                 trend["platform"],
@@ -185,6 +211,7 @@ def store_trend(conn: sqlite3.Connection, trend: dict) -> bool:
                 trend.get("post_idea", ""),
                 trend.get("source_url", ""),
                 trend.get("fetched_at", datetime.now().isoformat()),
+                h,
             ),
         )
         conn.commit()

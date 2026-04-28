@@ -1,11 +1,27 @@
 import feedparser
+import hashlib
 import httpx
+import re
 from datetime import datetime
 from typing import Any
 import sqlite3
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_text(text: str) -> str:
+    if not text:
+        return ""
+    text = text.lower()
+    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+def _content_hash(*parts: str) -> str:
+    combined = "|".join(_normalize_text(p) for p in parts if p)
+    return hashlib.md5(combined.encode("utf-8")).hexdigest()[:16]
 
 
 def parse_rss_feed(url: str, source_name: str = "", max_items: int = 10) -> list[dict]:
@@ -87,12 +103,27 @@ def summarize_article(title: str, content: str, source: str, openai_client: Any,
 
 
 def store_article(conn: sqlite3.Connection, article: dict) -> None:
-    """Insert article into DB. Silently ignores duplicates (url is UNIQUE)."""
+    """Insert article into DB. Silently ignores duplicates (url is UNIQUE or same content_hash)."""
     try:
+        # Calcular hash del título normalizado
+        h = _content_hash(article.get("title", ""), article.get("title_es", ""))
+        article["content_hash"] = h
+
+        # Verificar duplicado en últimos N días
+        from backend.config import load_config
+        config = load_config()
+        window = config.get("duplicate_window_days", 7)
+        existing = conn.execute(
+            "SELECT id FROM articles WHERE content_hash = ? AND fetched_at >= datetime('now', ?) LIMIT 1",
+            (h, f"-{window} days"),
+        ).fetchone()
+        if existing:
+            return  # ya existe artículo prácticamente igual
+
         conn.execute(
             """INSERT OR IGNORE INTO articles
-               (title, title_es, source, url, summary, relevance, relevance_score, category, fetched_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (title, title_es, source, url, summary, relevance, relevance_score, category, fetched_at, content_hash)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 article["title"],
                 article.get("title_es", ""),
@@ -103,6 +134,7 @@ def store_article(conn: sqlite3.Connection, article: dict) -> None:
                 article.get("relevance_score", 0),
                 article.get("category", ""),
                 article.get("fetched_at", datetime.now().isoformat()),
+                h,
             ),
         )
         # Backfill: si ya existía, rellena campos vacíos
