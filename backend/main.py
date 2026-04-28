@@ -26,6 +26,7 @@ from backend.routers.team_router import router as team_router
 from backend.routers.integrations_router import router as integrations_router
 from backend.routers.system_router import router as system_router
 from backend.routers.dashboard_router import router as dashboard_router
+from backend.routers.sync_router import router as sync_router
 from backend.services.intelligence import run_intelligence_cycle
 from backend.services.trends import run_trends_cycle
 from backend.services.reports import (
@@ -161,6 +162,7 @@ app.include_router(team_router, prefix="/api")
 app.include_router(integrations_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
+app.include_router(sync_router, prefix="/api")
 
 _FRONTEND_DIST = get_frontend_dist()
 if _FRONTEND_DIST.exists():

@@ -54,6 +54,8 @@ hiddenimports = [
     "backend.routers.integrations_router",
     "backend.routers.system_router",
     "backend.routers.dashboard_router",
+    "backend.routers.sync_router",
+    "backend.services.sync",
     "backend.services.dashboard",
     "backend.services.summit",
     "backend.services.brand",
