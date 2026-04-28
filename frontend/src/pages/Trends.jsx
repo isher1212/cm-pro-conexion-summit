@@ -14,6 +14,69 @@ const platformColor = {
 }
 
 function TrendCard({ trend }) {
+  const [panel, setPanel] = useState(false)
+  const [mode, setMode] = useState('image') // 'image' | 'video_script'
+  const [targetPlatform, setTargetPlatform] = useState('Instagram')
+  const [extraSpecs, setExtraSpecs] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null) // { urls?, script? }
+  const [sent, setSent] = useState(false)
+  const [replicateError, setReplicateError] = useState('')
+
+  const isYouTube = trend.platform === 'YouTube'
+
+  async function handleReplicate() {
+    setLoading(true)
+    setResult(null)
+    setReplicateError('')
+    try {
+      const res = await fetch('/api/images/replicate-trend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          keyword: trend.keyword,
+          platform_origin: trend.platform,
+          trend_url: trend.url || '',
+          target_platform: targetPlatform,
+          mode,
+          extra_specs: extraSpecs,
+          send_to_parrilla: false,
+        }),
+      })
+      if (!res.ok) {
+        setReplicateError('Error al replicar tendencia.')
+        return
+      }
+      const data = await res.json()
+      if (data.error) {
+        setReplicateError(data.error)
+      } else {
+        setResult(data)
+      }
+    } catch {
+      setReplicateError('Error de conexión.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleSendToParrilla() {
+    await fetch('/api/images/replicate-trend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        keyword: trend.keyword,
+        platform_origin: trend.platform,
+        trend_url: trend.url || '',
+        target_platform: targetPlatform,
+        mode,
+        extra_specs: extraSpecs,
+        send_to_parrilla: true,
+      }),
+    })
+    setSent(true)
+  }
+
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -55,6 +118,84 @@ function TrendCard({ trend }) {
       <p className="text-xs text-gray-300 mt-3">
         {trend.fetched_at ? new Date(trend.fetched_at).toLocaleDateString('es-CO') : ''}
       </p>
+
+      {/* Replication panel */}
+      <div className="mt-3 pt-3 border-t border-gray-50">
+        {!panel ? (
+          <button onClick={() => setPanel(true)} className="text-xs text-violet-600 hover:text-violet-800 font-medium">
+            🔁 Replicar para la marca
+          </button>
+        ) : (
+          <div className="space-y-2">
+            {isYouTube && (
+              <div className="flex gap-2">
+                <button onClick={() => setMode('image')}
+                  className={`text-xs px-2.5 py-1 rounded-lg border ${mode === 'image' ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                  🖼 Imagen
+                </button>
+                <button onClick={() => setMode('video_script')}
+                  className={`text-xs px-2.5 py-1 rounded-lg border ${mode === 'video_script' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                  🎬 Guión
+                </button>
+              </div>
+            )}
+            <div className="flex gap-2 flex-wrap">
+              {['Instagram', 'TikTok', 'LinkedIn'].map(p => (
+                <button key={p} onClick={() => setTargetPlatform(p)}
+                  className={`text-xs px-2.5 py-1 rounded-lg border ${targetPlatform === p ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                  {p}
+                </button>
+              ))}
+            </div>
+            {mode === 'image' && (
+              <textarea value={extraSpecs} onChange={e => setExtraSpecs(e.target.value)}
+                placeholder="Especificaciones adicionales (opcional)..."
+                rows={1} className="w-full border border-gray-200 rounded px-2 py-1 text-xs resize-none" />
+            )}
+            <div className="flex gap-2 items-center">
+              <button onClick={handleReplicate} disabled={loading}
+                className="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">
+                {loading ? '⏳ Generando...' : 'Generar'}
+              </button>
+              <button onClick={() => { setPanel(false); setResult(null); setSent(false); setReplicateError('') }}
+                className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+            </div>
+            {replicateError && <p className="text-xs text-red-500">{replicateError}</p>}
+
+            {result && (
+              <div className="mt-2 p-3 bg-violet-50 rounded-lg border border-violet-100 space-y-2">
+                {Array.isArray(result.urls) && result.urls.length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {result.urls.map(url => (
+                      <a key={url} href={url} target="_blank" rel="noreferrer">
+                        <img src={url} alt="" className="w-24 h-24 object-cover rounded-lg border border-violet-100" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {result.script?.hook && (
+                  <div className="space-y-1">
+                    {[['🎣 Hook', result.script.hook], ['📖 Desarrollo', result.script.desarrollo], ['📢 CTA', result.script.cta]].map(([label, val]) => val ? (
+                      <div key={label}>
+                        <p className="text-xs font-medium text-violet-700">{label}</p>
+                        <p className="text-xs text-violet-900">{val}</p>
+                      </div>
+                    ) : null)}
+                  </div>
+                )}
+                {!sent ? (
+                  <button onClick={handleSendToParrilla}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg">
+                    📅 Enviar a Parrilla
+                  </button>
+                ) : (
+                  <p className="text-xs text-green-600 font-medium">✓ Enviado a Parrilla</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
