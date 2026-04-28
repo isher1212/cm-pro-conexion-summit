@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search, RefreshCw, ExternalLink, Tag } from 'lucide-react'
+import DateRangeFilter from '../components/DateRangeFilter'
+import ViewToggle from '../components/ViewToggle'
+import HistoricalArchive from '../components/HistoricalArchive'
 
 const CATEGORIES = ['Todas', 'Colombia', 'LATAM', 'Global']
 
@@ -143,6 +146,21 @@ function ArticleCard({ article }) {
             🔖 Guardar
           </button>
         )}
+        {!article.discarded ? (
+          <button onClick={async () => {
+            await fetch(`/api/intelligence/articles/${article.id}/discard`, { method: 'POST' })
+            window.dispatchEvent(new CustomEvent('cm-refresh-articles'))
+          }} className="text-xs text-gray-400 hover:text-red-500">
+            🗑 Descartar
+          </button>
+        ) : (
+          <button onClick={async () => {
+            await fetch(`/api/intelligence/articles/${article.id}/restore`, { method: 'POST' })
+            window.dispatchEvent(new CustomEvent('cm-refresh-articles'))
+          }} className="text-xs text-amber-600 hover:text-amber-800">
+            ↩ Restaurar
+          </button>
+        )}
       </div>
     </div>
   )
@@ -158,6 +176,8 @@ export default function Intelligence() {
   const [error, setError] = useState('')
   const [sort, setSort] = useState('recent') // 'recent' | 'relevance'
   const [reprocessing, setReprocessing] = useState(false)
+  const [dateRange, setDateRange] = useState({ preset: 'default', from: '', to: '' })
+  const [view, setView] = useState('active')
 
   const fetchArticles = useCallback(async () => {
     setLoading(true)
@@ -168,6 +188,9 @@ export default function Intelligence() {
       if (category !== 'Todas') params.set('category', category)
       params.set('limit', '50')
       params.set('sort', sort)
+      params.set('view', view)
+      if (dateRange.from) params.set('from_date', dateRange.from)
+      if (dateRange.to) params.set('to_date', dateRange.to)
       const res = await fetch(`/api/intelligence/articles?${params}`)
       if (!res.ok) throw new Error('Error al cargar artículos')
       const data = await res.json()
@@ -178,10 +201,16 @@ export default function Intelligence() {
     } finally {
       setLoading(false)
     }
-  }, [search, category, sort])
+  }, [search, category, sort, view, dateRange])
 
   useEffect(() => {
     fetchArticles()
+  }, [fetchArticles])
+
+  useEffect(() => {
+    const h = () => fetchArticles()
+    window.addEventListener('cm-refresh-articles', h)
+    return () => window.removeEventListener('cm-refresh-articles', h)
   }, [fetchArticles])
 
   async function handleRefresh() {
@@ -268,6 +297,11 @@ export default function Intelligence() {
         </button>
       </div>
 
+      <div className="space-y-3 mb-4">
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        <ViewToggle value={view} onChange={setView} />
+      </div>
+
       {error && (
         <div className="bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-lg mb-4">
           {error}
@@ -309,6 +343,13 @@ export default function Intelligence() {
           ))}
         </div>
       )}
+
+      <div className="mt-6">
+        <HistoricalArchive
+          endpoint="/api/intelligence/archive-by-month"
+          onSelectMonth={month => setDateRange({ preset: 'custom', from: `${month}-01`, to: `${month}-31` })}
+        />
+      </div>
     </div>
   )
 }
