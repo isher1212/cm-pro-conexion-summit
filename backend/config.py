@@ -12,6 +12,8 @@ def _get_config_path() -> str:
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "openai_api_key": "",
+    "kie_ai_api_key": "",
+    "kie_ai_model": "flux-dev",
     "email_sender": "",
     "email_sender_password": "",
     "email_recipient": "",

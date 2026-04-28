@@ -74,6 +74,7 @@ export default function Settings() {
           <div className="space-y-4">
             {[
               { key: 'openai_api_key', label: 'OpenAI API Key', type: 'password', placeholder: 'sk-...' },
+              { key: 'kie_ai_api_key', label: 'Kie AI API Key (generación de imágenes)', type: 'password', placeholder: 'kie-...' },
               { key: 'email_sender', label: 'Email remitente', type: 'email', placeholder: 'tu@gmail.com' },
               { key: 'email_sender_password', label: 'Contraseña de aplicación Gmail', type: 'password', placeholder: 'xxxx xxxx xxxx xxxx' },
               { key: 'email_recipient', label: 'Email destinatario (el suyo)', type: 'email', placeholder: 'ella@gmail.com' },
@@ -91,6 +92,21 @@ export default function Settings() {
                 />
               </div>
             ))}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Modelo de imagen Kie AI</label>
+              <select
+                value={cfg.kie_ai_model || 'flux-dev'}
+                onChange={e => updateField('kie_ai_model', e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              >
+                <option value="flux-schnell">Flux Schnell — rápido, económico</option>
+                <option value="flux-dev">Flux Dev — equilibrio calidad/precio (recomendado)</option>
+                <option value="flux-pro">Flux Pro — máxima calidad</option>
+                <option value="kling-v1">Kling v1 — estilo realista</option>
+                <option value="kling-v1-5">Kling v1.5 — realista mejorado</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">El modelo afecta la calidad y el costo por imagen. Flux Dev es el punto dulce.</p>
+            </div>
           </div>
         </section>
 
