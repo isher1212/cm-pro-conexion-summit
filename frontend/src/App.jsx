@@ -11,12 +11,14 @@ import Saved from './pages/Saved'
 import Library from './pages/Library'
 import Competitors from './pages/Competitors'
 import Templates from './pages/Templates'
+import Summit from './pages/Summit'
 
 export default function App() {
   return (
     <BrowserRouter>
       <Layout>
         <Routes>
+          <Route path="/summit" element={<Summit />} />
           <Route path="/" element={<Overview />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/intelligence" element={<Intelligence />} />

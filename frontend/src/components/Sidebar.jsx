@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, TrendingUp, Newspaper, Flame, Bookmark, Calendar, Mail, Settings, Images, Target, FileText } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, Newspaper, Flame, Bookmark, Calendar, Mail, Settings, Images, Target, FileText, Trophy } from 'lucide-react'
 import NotificationsBell from './NotificationsBell'
 
 const links = [
+  { to: '/summit', icon: Trophy, label: 'Conexión Summit' },
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
   { to: '/intelligence', icon: Newspaper, label: 'Inteligencia' },
