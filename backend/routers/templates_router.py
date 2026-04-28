@@ -33,3 +33,10 @@ def del_template(template_id: int):
 def render(template_id: int, body: dict):
     values = body.get("values", {}) if isinstance(body, dict) else {}
     return render_template(template_id, values)
+
+
+@router.post("/templates/seed")
+def seed_endpoint():
+    from backend.services.templates import seed_default_templates
+    n = seed_default_templates()
+    return {"status": "ok", "inserted": n}

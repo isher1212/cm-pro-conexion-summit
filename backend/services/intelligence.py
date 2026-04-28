@@ -107,8 +107,8 @@ def summarize_article(title: str, content: str, source: str, openai_client: Any,
         return {"title_es": "", "summary": "", "relevance": "", "relevance_score": 0}
 
 
-def store_article(conn: sqlite3.Connection, article: dict) -> None:
-    """Insert article into DB. Silently ignores duplicates (url is UNIQUE or same content_hash)."""
+def store_article(conn: sqlite3.Connection, article: dict) -> bool:
+    """Insert article into DB. Returns True if inserted, False if duplicate."""
     try:
         # Calcular hash del título normalizado
         h = _content_hash(article.get("title", ""), article.get("title_es", ""))
@@ -123,7 +123,7 @@ def store_article(conn: sqlite3.Connection, article: dict) -> None:
             (h, f"-{window} days"),
         ).fetchone()
         if existing:
-            return  # ya existe artículo prácticamente igual
+            return False  # ya existe artículo prácticamente igual
 
         conn.execute(
             """INSERT OR IGNORE INTO articles
@@ -172,8 +172,10 @@ def store_article(conn: sqlite3.Connection, article: dict) -> None:
                     trigger_relevant_article(cur[0], article.get("title_es") or article.get("title", ""), score, threshold)
         except Exception as e:
             logger.warning(f"notif trigger article failed: {e}")
+        return True
     except Exception as e:
         logger.warning(f"Failed to store article {article.get('url')}: {e}")
+        return False
 
 
 def get_articles(conn: sqlite3.Connection, limit: int = 50, category: str = "", search: str = "") -> list[dict]:
@@ -203,6 +205,7 @@ def run_intelligence_cycle(conn: sqlite3.Connection, config: dict, openai_client
     sources = [s for s in config.get("rss_sources", []) if s.get("active", True)]
     brand_context = config.get("brand_context", "")
     stored_count = 0
+    duplicates_count = 0
 
     limits_by_category = {
         "Colombia": config.get("count_articles_colombia", 5),
@@ -234,12 +237,12 @@ def run_intelligence_cycle(conn: sqlite3.Connection, config: dict, openai_client
                 article["relevance"] = result.get("relevance", "")
                 article["relevance_score"] = result.get("relevance_score", 0)
             article["fetched_at"] = datetime.now().isoformat()
-            before = _count_articles(conn)
-            store_article(conn, article)
-            after = _count_articles(conn)
-            if after > before:
+            inserted = store_article(conn, article)
+            if inserted:
                 stored_count += 1
                 counts_by_category[cat] = counts_by_category.get(cat, 0) + 1
+            else:
+                duplicates_count += 1
 
     # Phase 14: fuentes adicionales (Reddit, foros, etc — RSS opcional)
     for src in config.get("additional_sources", []) or []:
@@ -278,14 +281,26 @@ def run_intelligence_cycle(conn: sqlite3.Connection, config: dict, openai_client
                         article["relevance_score"] = ai_data.get("relevance_score", 0)
                     except Exception:
                         pass
-                before = _count_articles(conn)
-                store_article(conn, article)
-                after = _count_articles(conn)
-                if after > before:
+                inserted = store_article(conn, article)
+                if inserted:
                     stored_count += 1
                     counts_by_category[cat] = counts_by_category.get(cat, 0) + 1
+                else:
+                    duplicates_count += 1
         except Exception as e:
             logger.warning(f"additional source failed {src.get('url')}: {e}")
+
+    if duplicates_count > 0:
+        try:
+            from backend.services.notifications import create_notification
+            create_notification(
+                type="duplicates_skipped",
+                title=f"{duplicates_count} artículos duplicados omitidos",
+                message="Se evitaron repeticiones de la última semana",
+                item_type="intelligence", item_id=0,
+            )
+        except Exception:
+            pass
 
     return stored_count
 

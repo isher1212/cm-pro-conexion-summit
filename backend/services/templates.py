@@ -91,3 +91,71 @@ def render_template(template_id: int, values: dict) -> dict:
     for key, val in values.items():
         rendered = rendered.replace("{{" + key + "}}", str(val))
     return {"name": row[0], "rendered": rendered}
+
+
+SEED_TEMPLATES = [
+    {
+        "name": "Anuncio de speaker",
+        "pillar": "Speakers e Historias de Impacto",
+        "content": "🎤 Tenemos confirmado a {{nombre_speaker}} en Conexión Summit.\n\n{{cargo}} en {{empresa}}, hablará sobre {{tema}} el {{fecha}}.\n\n¿Por qué no te lo puedes perder? {{razon}}\n\n#ConexionSummit #Emprendimiento",
+        "tags": "speaker, evento, anuncio",
+    },
+    {
+        "name": "Caso de éxito startup",
+        "pillar": "Conexiones Corporativo ↔ Startup",
+        "content": "🚀 La historia de {{nombre_startup}}:\n\nDe {{problema_inicial}} a {{logro_actual}} en {{tiempo}}.\n\nLa conexión con {{aliado}} fue el punto de inflexión. Lección: {{leccion}}.\n\n#StartupsLATAM #Innovacion",
+        "tags": "caso, startup, exito",
+    },
+    {
+        "name": "Tip educativo",
+        "pillar": "Educación e Innovación",
+        "content": "💡 {{tema}} en 3 puntos:\n\n1. {{punto1}}\n2. {{punto2}}\n3. {{punto3}}\n\n¿Cuál aplicarás primero? Coméntalo abajo 👇\n\n#Innovacion #Emprendedores",
+        "tags": "tip, educativo",
+    },
+    {
+        "name": "Behind the scenes preparación",
+        "pillar": "Behind the Scenes",
+        "content": "🎬 Así preparamos {{actividad}} para Conexión Summit.\n\n{{descripcion_proceso}}\n\nDetrás de cada gran evento hay un equipo construyendo la experiencia. Cuenta regresiva: {{dias}} días.\n\n#ConexionSummit",
+        "tags": "behind, equipo",
+    },
+    {
+        "name": "Dato del ecosistema LATAM",
+        "pillar": "Ecosistema Emprendedor LATAM",
+        "content": "📊 Dato del día:\n\n{{dato_principal}}\n\nFuente: {{fuente}}.\n\nLo que esto significa para emprendedores LATAM: {{interpretacion}}.\n\n#EcosistemaLATAM #Datos",
+        "tags": "dato, ecosistema, latam",
+    },
+    {
+        "name": "Invitación a registro",
+        "pillar": "Ecosistema Emprendedor LATAM",
+        "content": "📅 ¡Faltan {{dias}} días para Conexión Summit {{año}}!\n\n📍 {{lugar}}\n🎤 {{cantidad_speakers}}+ speakers confirmados\n🤝 Rueda de negocios startup-corporativo\n\nRegístrate aquí 👉 {{link_registro}}\n\n#ConexionSummit{{año}}",
+        "tags": "invitacion, registro",
+    },
+    {
+        "name": "Quote de speaker",
+        "pillar": "Speakers e Historias de Impacto",
+        "content": '"{{frase}}"\n\n— {{nombre_speaker}}, {{cargo}}\n\nSpeaker confirmado en Conexión Summit {{año}}. {{contexto_breve}}\n\n#ConexionSummit #Emprendimiento',
+        "tags": "quote, speaker, frase",
+    },
+    {
+        "name": "Recap de evento pasado",
+        "pillar": "Behind the Scenes",
+        "content": "🎉 ¡Cerramos Conexión Summit {{año}}!\n\nEn números:\n👥 {{asistentes}} asistentes\n🤝 {{conexiones}} conexiones generadas\n🎤 {{charlas}} charlas\n\nLo más viral: {{momento_destacado}}.\n\nGracias a quienes lo hicieron posible. Nos vemos en {{año_siguiente}}.",
+        "tags": "recap, post-evento",
+    },
+]
+
+
+def seed_default_templates() -> int:
+    """Inserta plantillas de ejemplo si no hay ninguna."""
+    conn = get_db()
+    count = conn.execute("SELECT COUNT(*) FROM copy_templates").fetchone()[0]
+    if count > 0:
+        return 0
+    inserted = 0
+    for t in SEED_TEMPLATES:
+        try:
+            create_template(t)
+            inserted += 1
+        except Exception:
+            pass
+    return inserted

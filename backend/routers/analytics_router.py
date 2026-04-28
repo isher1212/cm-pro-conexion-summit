@@ -252,3 +252,14 @@ def sentiment_for_post(post_id: int):
     from openai import OpenAI
     client = OpenAI(api_key=key)
     return analyze_post_sentiment_auto(post_id, client, config)
+
+
+@router.post("/analytics/import-comments-csv")
+async def import_comments_csv_endpoint(file: UploadFile = File(...)):
+    from backend.services.comments_import import import_comments_csv
+    try:
+        content = await file.read()
+        text = content.decode("utf-8", errors="replace")
+        return import_comments_csv(text)
+    except Exception as e:
+        return {"error": str(e)}

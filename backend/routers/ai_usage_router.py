@@ -31,3 +31,19 @@ def get_usage_recent(limit: int = 50):
     ).fetchall()
     cols = ["id", "service", "model", "tokens_in", "tokens_out", "cost_usd", "context", "created_at"]
     return [dict(zip(cols, r)) for r in rows]
+
+
+@router.get("/ai-usage/by-context")
+def usage_by_context(days: int = 30):
+    conn = get_db()
+    since = (datetime.now() - timedelta(days=days)).isoformat()
+    rows = conn.execute(
+        """SELECT context, COUNT(*) as calls, SUM(cost_usd) as total_cost, SUM(tokens_in+tokens_out) as tokens
+           FROM ai_usage_log WHERE created_at >= ?
+           GROUP BY context ORDER BY total_cost DESC""",
+        (since,),
+    ).fetchall()
+    return [
+        {"context": r[0] or "(sin contexto)", "calls": r[1], "total_cost_usd": round(r[2] or 0, 4), "tokens": r[3] or 0}
+        for r in rows
+    ]

@@ -310,6 +310,7 @@ def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any 
     ])
     brand_context = config.get("brand_context", "")
     stored_count = 0
+    duplicates_count = 0
 
     max_google = config.get("max_trends_google", 5)
     max_youtube = config.get("max_trends_youtube", 5)
@@ -325,6 +326,8 @@ def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any 
         item["fetched_at"] = datetime.now().isoformat()
         if store_trend(conn, item):
             stored_count += 1
+        else:
+            duplicates_count += 1
 
     # YouTube Trending
     yt_items = fetch_youtube_trending(max_items=max_youtube)
@@ -335,6 +338,8 @@ def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any 
         item["fetched_at"] = datetime.now().isoformat()
         if store_trend(conn, item):
             stored_count += 1
+        else:
+            duplicates_count += 1
 
     # TikTok keywords trends (analyzed by GPT, no real TikTok scraping)
     tiktok_kw = config.get("trend_keywords_tiktok", [])
@@ -351,6 +356,8 @@ def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any 
         trend_data.update(ai_fields)
         if store_trend(conn, trend_data):
             stored_count += 1
+        else:
+            duplicates_count += 1
 
     # LinkedIn keywords trends
     linkedin_kw = config.get("trend_keywords_linkedin", [])
@@ -367,5 +374,19 @@ def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any 
         trend_data.update(ai_fields)
         if store_trend(conn, trend_data):
             stored_count += 1
+        else:
+            duplicates_count += 1
+
+    if duplicates_count > 0:
+        try:
+            from backend.services.notifications import create_notification
+            create_notification(
+                type="duplicates_skipped",
+                title=f"{duplicates_count} tendencias duplicadas omitidas",
+                message="Se evitaron repeticiones",
+                item_type="trends", item_id=0,
+            )
+        except Exception:
+            pass
 
     return stored_count

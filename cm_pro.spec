@@ -61,6 +61,7 @@ hiddenimports = [
     "backend.services.auto_publish",
     "backend.services.competitors",
     "backend.services.templates",
+    "backend.services.comments_import",
     "backend.services.notifications",
     "backend.services.ai_usage",
     "backend.services.image_gen",
