@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, TrendingUp, Newspaper, Flame, Bookmark, Calendar, Mail, Settings, Images, Target, FileText, Trophy } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, Newspaper, Flame, Bookmark, Calendar, Mail, Settings, Images, Target, FileText, Trophy, Award, Users, Plug } from 'lucide-react'
 import NotificationsBell from './NotificationsBell'
 
 const links = [
@@ -15,6 +15,9 @@ const links = [
   { to: '/competitors', icon: Target, label: 'Referentes' },
   { to: '/reports', icon: Mail, label: 'Reportes' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
+  { to: '/brand', icon: Award, label: 'Marca' },
+  { to: '/team', icon: Users, label: 'Equipo' },
+  { to: '/integrations', icon: Plug, label: 'Integraciones' },
 ]
 
 export default function Sidebar() {

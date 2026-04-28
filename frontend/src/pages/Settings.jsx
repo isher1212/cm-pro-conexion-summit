@@ -430,6 +430,15 @@ export default function Settings() {
           </div>
         </section>
 
+        {/* Reiniciar con nueva marca */}
+        <section className="border-t border-red-100 pt-6 mt-6">
+          <h2 className="text-base font-semibold text-red-700 mb-2">Zona delicada — Reiniciar con nueva marca</h2>
+          <p className="text-xs text-gray-500 mb-3">
+            Si esta instalación va a ser usada para otra marca distinta, puedes limpiar todos los datos manteniendo las configuraciones técnicas (API keys, horarios, integraciones). Esto es <b>irreversible</b>.
+          </p>
+          <ResetBrandPanel />
+        </section>
+
         <button
           type="submit"
           disabled={saving}
@@ -485,5 +494,60 @@ function ManualReportButton({ endpoint, label }) {
       className="border border-gray-200 hover:bg-gray-50 text-sm px-3 py-2 rounded-lg disabled:opacity-50 text-left">
       {sending ? '⏳ Enviando...' : (result || label)}
     </button>
+  )
+}
+
+function ResetBrandPanel() {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [running, setRunning] = useState(false)
+  const [result, setResult] = useState('')
+
+  async function run() {
+    if (!name || confirm !== 'REINICIAR') {
+      setResult('Escribe REINICIAR para confirmar.')
+      return
+    }
+    setRunning(true); setResult('')
+    try {
+      const r = await fetch('/api/system/reset-for-new-brand', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand: { name, active: true } }),
+      })
+      const data = await r.json()
+      if (data.error) setResult(data.error)
+      else { setResult('✓ Reiniciado. Reload en 2 segundos...'); setTimeout(() => window.location.reload(), 2000) }
+    } catch { setResult('Error de conexión') }
+    finally { setRunning(false) }
+  }
+
+  return (
+    <div>
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)}
+          className="text-sm text-red-600 hover:text-red-800 font-medium">
+          Quiero reiniciar el sistema para otra marca →
+        </button>
+      ) : (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+          <input value={name} onChange={e => setName(e.target.value)}
+            placeholder="Nombre de la nueva marca"
+            className="w-full border border-red-200 rounded-lg px-3 py-2 text-sm" />
+          <input value={confirm} onChange={e => setConfirm(e.target.value)}
+            placeholder="Escribe REINICIAR para confirmar"
+            className="w-full border border-red-200 rounded-lg px-3 py-2 text-sm" />
+          <div className="flex gap-2">
+            <button type="button" onClick={run} disabled={running || !name || confirm !== 'REINICIAR'}
+              className="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50">
+              {running ? 'Reiniciando...' : 'Reiniciar todo'}
+            </button>
+            <button type="button" onClick={() => { setOpen(false); setName(''); setConfirm('') }}
+              className="text-sm text-gray-500 px-3 py-2">Cancelar</button>
+          </div>
+          {result && <p className="text-xs">{result}</p>}
+        </div>
+      )}
+    </div>
   )
 }

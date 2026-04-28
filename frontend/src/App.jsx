@@ -12,6 +12,9 @@ import Library from './pages/Library'
 import Competitors from './pages/Competitors'
 import Templates from './pages/Templates'
 import Summit from './pages/Summit'
+import Brand from './pages/Brand'
+import Team from './pages/Team'
+import Integrations from './pages/Integrations'
 
 export default function App() {
   return (
@@ -30,6 +33,9 @@ export default function App() {
           <Route path="/templates" element={<Templates />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/brand" element={<Brand />} />
+          <Route path="/team" element={<Team />} />
+          <Route path="/integrations" element={<Integrations />} />
         </Routes>
       </Layout>
     </BrowserRouter>
