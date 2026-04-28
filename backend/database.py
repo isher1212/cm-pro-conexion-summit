@@ -239,6 +239,75 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         conn.commit()
     except Exception:
         pass
+    # Phase 14 migrations
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS competitors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                scope TEXT NOT NULL DEFAULT 'national',
+                category TEXT,
+                instagram_handle TEXT,
+                linkedin_handle TEXT,
+                website TEXT,
+                notes TEXT,
+                active INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS competitor_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                competitor_id INTEGER NOT NULL,
+                platform TEXT,
+                post_url TEXT,
+                content TEXT,
+                likes INTEGER DEFAULT 0,
+                comments INTEGER DEFAULT 0,
+                posted_at TEXT,
+                captured_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS copy_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                content TEXT NOT NULL,
+                pillar TEXT,
+                variables TEXT DEFAULT '[]',
+                tags TEXT DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sentiment_analyses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source TEXT,
+                post_id INTEGER,
+                positive_count INTEGER DEFAULT 0,
+                neutral_count INTEGER DEFAULT 0,
+                negative_count INTEGER DEFAULT 0,
+                summary TEXT,
+                top_themes TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 _conn: sqlite3.Connection | None = None
