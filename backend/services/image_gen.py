@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
@@ -80,6 +81,9 @@ def _create_task(
             json=body,
             timeout=30,
         )
+        if resp.status_code >= 400:
+            logger.warning(f"Kie AI createTask HTTP {resp.status_code}")
+            return None
         return resp.json().get("data", {}).get("taskId")
     except Exception as e:
         logger.warning(f"Kie AI createTask failed: {e}")
@@ -96,6 +100,9 @@ def _poll_task(task_id: str, api_key: str, timeout: int = 120) -> dict:
                 params={"taskId": task_id},
                 timeout=15,
             )
+            if resp.status_code >= 400:
+                logger.warning(f"Kie AI getTask HTTP {resp.status_code} for task {task_id}")
+                return {}
             data = resp.json().get("data", {})
             if data.get("status") in ("succeed", "failed"):
                 return data
@@ -197,7 +204,6 @@ def build_article_proposal_prompt(
     brand_context: str = "",
 ) -> str:
     context_line = f"\nContexto de marca: {brand_context}" if brand_context else ""
-    from datetime import datetime, timedelta
     suggested = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
     return f"""Eres el estratega de contenido de Conexión Summit, plataforma de emprendimiento en LATAM.{context_line}
 
