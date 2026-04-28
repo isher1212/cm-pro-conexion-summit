@@ -4,7 +4,8 @@ from backend.config import load_config
 from backend.services.reports import (
     get_report_log, run_daily_email_job, run_weekly_email_job,
     run_daily_intelligence_telegram, run_daily_trends_telegram,
-    run_weekly_telegram_job,
+    run_weekly_telegram_job, send_monthly_report_email,
+    run_weekly_intelligence_email,
 )
 
 router = APIRouter()
@@ -55,3 +56,17 @@ def send_weekly_telegram():
     config = load_config()
     run_weekly_telegram_job(conn, config)
     return {"status": "ok"}
+
+
+@router.post("/reports/send-monthly")
+def send_monthly():
+    conn = get_db()
+    config = load_config()
+    return send_monthly_report_email(conn, config)
+
+
+@router.post("/reports/send-weekly-intelligence")
+def send_weekly_intelligence():
+    conn = get_db()
+    config = load_config()
+    return run_weekly_intelligence_email(conn, config)

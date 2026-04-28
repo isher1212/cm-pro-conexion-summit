@@ -21,6 +21,7 @@ from backend.services.trends import run_trends_cycle
 from backend.services.reports import (
     run_daily_intelligence_telegram, run_daily_trends_telegram,
     run_daily_email_job, run_weekly_email_job, run_weekly_telegram_job,
+    send_monthly_report_email, run_weekly_intelligence_email,
 )
 from backend.app_paths import get_frontend_dist
 
@@ -79,6 +80,20 @@ def _schedule_weekly_telegram():
     run_weekly_telegram_job(conn, config)
 
 
+def _schedule_monthly_report():
+    from backend.database import get_db as _get_db
+    conn = _get_db()
+    config = load_config()
+    send_monthly_report_email(conn, config)
+
+
+def _schedule_weekly_intelligence():
+    from backend.database import get_db as _get_db
+    conn = _get_db()
+    config = load_config()
+    run_weekly_intelligence_email(conn, config)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     get_db()
@@ -91,6 +106,10 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(_schedule_daily_telegram_trends, trigger="cron", hour=9, minute=0, id="daily_telegram_trends", replace_existing=True)
     scheduler.add_job(_schedule_weekly_email, trigger="cron", day_of_week="mon", hour=8, minute=0, id="weekly_email", replace_existing=True)
     scheduler.add_job(_schedule_weekly_telegram, trigger="cron", day_of_week="mon", hour=8, minute=30, id="weekly_telegram", replace_existing=True)
+    mday = load_config().get("monthly_report_day", 1)
+    mhour = load_config().get("monthly_report_hour", 9)
+    scheduler.add_job(_schedule_monthly_report, trigger="cron", day=mday, hour=mhour, id="monthly_report", replace_existing=True)
+    scheduler.add_job(_schedule_weekly_intelligence, trigger="cron", day_of_week="mon", hour=7, minute=30, id="weekly_intelligence", replace_existing=True)
 
     start_scheduler()
     yield

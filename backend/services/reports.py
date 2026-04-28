@@ -1,9 +1,11 @@
 import logging
 import smtplib
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+from io import BytesIO
 from typing import Any
 
 import httpx
@@ -360,3 +362,245 @@ def run_weekly_telegram_job(conn: sqlite3.Connection, config: dict) -> None:
     msg = build_telegram_weekly_summary(metrics_summary)
     ok = send_telegram(config, msg)
     log_report(conn, "weekly_telegram", "telegram", "sent" if ok else "skipped")
+
+
+# ── Monthly Excel report ───────────────────────────────────────────────────────
+
+def run_monthly_report(conn: sqlite3.Connection, config: dict) -> bytes:
+    """Genera Excel del mes pasado con todos los datos relevantes."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    today = datetime.now()
+    start = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+    end = today.replace(day=1)
+    start_iso = start.isoformat()
+    end_iso = end.isoformat()
+    month_label = start.strftime("%B %Y")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Resumen"
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="6366F1")
+
+    def write_header(sheet, row: int, headers: list):
+        for col, h in enumerate(headers, 1):
+            cell = sheet.cell(row=row, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+
+    ws["A1"] = f"Reporte mensual — {month_label}"
+    ws["A1"].font = Font(bold=True, size=14)
+    ws["A3"] = "Período"
+    ws["B3"] = f"{start.strftime('%Y-%m-%d')} a {end.strftime('%Y-%m-%d')}"
+
+    counts = {}
+    counts["articulos_guardados"] = conn.execute(
+        "SELECT COUNT(*) FROM saved_items WHERE item_type='article' AND saved_at >= ? AND saved_at < ?",
+        (start_iso, end_iso)
+    ).fetchone()[0]
+    counts["tendencias_guardadas"] = conn.execute(
+        "SELECT COUNT(*) FROM saved_items WHERE item_type='trend' AND saved_at >= ? AND saved_at < ?",
+        (start_iso, end_iso)
+    ).fetchone()[0]
+    counts["propuestas_publicadas"] = conn.execute(
+        "SELECT COUNT(*) FROM content_proposals WHERE status='published' AND created_at >= ? AND created_at < ?",
+        (start_iso, end_iso)
+    ).fetchone()[0]
+    counts["propuestas_aprobadas"] = conn.execute(
+        "SELECT COUNT(*) FROM content_proposals WHERE status='approved' AND created_at >= ? AND created_at < ?",
+        (start_iso, end_iso)
+    ).fetchone()[0]
+    counts["eventos"] = conn.execute(
+        "SELECT COUNT(*) FROM events WHERE date >= ? AND date < ?",
+        (start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d'))
+    ).fetchone()[0]
+    ai_cost = conn.execute(
+        "SELECT SUM(cost_usd) FROM ai_usage_log WHERE created_at >= ? AND created_at < ?",
+        (start_iso, end_iso)
+    ).fetchone()[0] or 0
+
+    write_header(ws, 5, ["Métrica", "Valor"])
+    ws["A6"] = "Artículos guardados"; ws["B6"] = counts["articulos_guardados"]
+    ws["A7"] = "Tendencias guardadas"; ws["B7"] = counts["tendencias_guardadas"]
+    ws["A8"] = "Propuestas publicadas"; ws["B8"] = counts["propuestas_publicadas"]
+    ws["A9"] = "Propuestas aprobadas"; ws["B9"] = counts["propuestas_aprobadas"]
+    ws["A10"] = "Eventos del mes"; ws["B10"] = counts["eventos"]
+    ws["A11"] = "Costo IA (USD)"; ws["B11"] = round(ai_cost, 2)
+
+    sh = wb.create_sheet("Artículos guardados")
+    write_header(sh, 1, ["Fecha guardado", "Título", "Fuente", "Categoría", "URL", "Resumen"])
+    for i, r in enumerate(conn.execute(
+        """SELECT saved_at, title, source, category, url, summary FROM saved_items
+           WHERE item_type='article' AND saved_at >= ? AND saved_at < ? ORDER BY saved_at DESC""",
+        (start_iso, end_iso),
+    ).fetchall(), start=2):
+        for c, v in enumerate(r, 1):
+            sh.cell(row=i, column=c, value=v)
+
+    sh = wb.create_sheet("Tendencias guardadas")
+    write_header(sh, 1, ["Fecha guardado", "Tendencia", "Plataforma", "URL fuente", "Descripción"])
+    for i, r in enumerate(conn.execute(
+        """SELECT saved_at, title, platform, url, summary FROM saved_items
+           WHERE item_type='trend' AND saved_at >= ? AND saved_at < ? ORDER BY saved_at DESC""",
+        (start_iso, end_iso),
+    ).fetchall(), start=2):
+        for c, v in enumerate(r, 1):
+            sh.cell(row=i, column=c, value=v)
+
+    sh = wb.create_sheet("Propuestas")
+    write_header(sh, 1, ["Fecha", "Topic", "Plataforma", "Formato", "Status", "Caption"])
+    for i, r in enumerate(conn.execute(
+        """SELECT suggested_date, topic, platform, format, status, caption_draft FROM content_proposals
+           WHERE created_at >= ? AND created_at < ? ORDER BY suggested_date""",
+        (start_iso, end_iso),
+    ).fetchall(), start=2):
+        for c, v in enumerate(r, 1):
+            sh.cell(row=i, column=c, value=v)
+
+    sh = wb.create_sheet("Eventos")
+    write_header(sh, 1, ["Fecha", "Título", "Tipo", "Descripción"])
+    for i, r in enumerate(conn.execute(
+        """SELECT date, title, event_type, description FROM events WHERE date >= ? AND date < ? ORDER BY date""",
+        (start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')),
+    ).fetchall(), start=2):
+        for c, v in enumerate(r, 1):
+            sh.cell(row=i, column=c, value=v)
+
+    sh = wb.create_sheet("Métricas")
+    write_header(sh, 1, ["Plataforma", "Semana", "Followers", "Reach", "Engagement %"])
+    for i, r in enumerate(conn.execute(
+        """SELECT platform, week_label, followers, reach, engagement_rate FROM metrics
+           WHERE recorded_at >= ? AND recorded_at < ? ORDER BY platform, recorded_at""",
+        (start_iso, end_iso),
+    ).fetchall(), start=2):
+        for c, v in enumerate(r, 1):
+            sh.cell(row=i, column=c, value=v)
+
+    for sheet in wb.worksheets:
+        for col in sheet.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                try:
+                    if cell.value:
+                        max_len = max(max_len, min(len(str(cell.value)), 60))
+                except Exception:
+                    pass
+            sheet.column_dimensions[col_letter].width = max_len + 2
+
+    bio = BytesIO()
+    wb.save(bio)
+    return bio.getvalue()
+
+
+def send_monthly_report_email(conn: sqlite3.Connection, config: dict) -> dict:
+    """Genera y envía el reporte mensual por email con Excel adjunto."""
+    if not (config.get("email_sender") and config.get("email_recipient")):
+        return {"status": "skipped", "reason": "email no configurado"}
+
+    excel_bytes = run_monthly_report(conn, config)
+    today = datetime.now()
+    last_month = (today.replace(day=1) - timedelta(days=1))
+    filename = f"reporte-cm-pro-{last_month.strftime('%Y-%m')}.xlsx"
+
+    try:
+        smtp_host = config.get("smtp_host", "smtp.gmail.com")
+        smtp_port = int(config.get("smtp_port", 587))
+        sender = config["email_sender"]
+        password = config.get("email_password", config.get("email_sender_password", ""))
+        recipient = config["email_recipient"]
+
+        msg = MIMEMultipart()
+        msg["From"] = sender
+        msg["To"] = recipient
+        msg["Subject"] = f"Reporte mensual CM Pro — {last_month.strftime('%B %Y')}"
+        body = (
+            f"Hola,\n\n"
+            f"Aquí está el reporte mensual de CM Pro para {last_month.strftime('%B %Y')}.\n\n"
+            f"Incluye:\n"
+            f"- Artículos guardados de Inteligencia\n"
+            f"- Tendencias guardadas\n"
+            f"- Propuestas publicadas y aprobadas\n"
+            f"- Eventos del mes\n"
+            f"- Métricas de redes sociales\n"
+            f"- Costo de IA del mes\n\n"
+            f"Adjunto encontrarás el Excel completo.\n\n"
+            f"— CM Pro\n"
+        )
+        msg.attach(MIMEText(body, "plain"))
+        attach = MIMEApplication(excel_bytes, _subtype="xlsx")
+        attach.add_header("Content-Disposition", "attachment", filename=filename)
+        msg.attach(attach)
+
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
+            smtp.starttls()
+            smtp.login(sender, password)
+            smtp.send_message(msg)
+
+        log_report(conn, "monthly", "email", "ok")
+        return {"status": "ok", "filename": filename}
+    except Exception as e:
+        logger.warning(f"send_monthly_report_email failed: {e}")
+        log_report(conn, "monthly", "email", "error", str(e))
+        return {"status": "error", "error": str(e)}
+
+
+# ── Weekly intelligence digest ─────────────────────────────────────────────────
+
+def run_weekly_intelligence_email(conn: sqlite3.Connection, config: dict) -> dict:
+    """Email con top N artículos (score >= 7) de la última semana."""
+    if not (config.get("email_sender") and config.get("email_recipient")):
+        return {"status": "skipped", "reason": "email no configurado"}
+
+    n = config.get("count_weekly_top_articles", 5)
+    rows = conn.execute(
+        """SELECT title_es, title, source, summary, relevance, relevance_score, url, fetched_at
+           FROM articles
+           WHERE fetched_at >= datetime('now', '-7 days') AND relevance_score >= 7
+           ORDER BY relevance_score DESC, fetched_at DESC LIMIT ?""",
+        (n,),
+    ).fetchall()
+
+    if not rows:
+        return {"status": "skipped", "reason": "no hay artículos relevantes esta semana"}
+
+    body = "<h2>Top artículos de la semana — CM Pro</h2><p>Estos son los más relevantes (score &ge; 7):</p>"
+    for r in rows:
+        title = r[0] or r[1]
+        body += (
+            f"<div style='border-left:3px solid #6366f1;padding:8px 12px;margin:10px 0;background:#f9fafb;'>"
+            f"<h3 style='margin:0 0 4px 0;'>{title}</h3>"
+            f"<p style='font-size:12px;color:#6b7280;margin:0 0 6px 0;'>"
+            f"{r[2]} &middot; Score {r[5]}/10 &middot; {r[7][:10] if r[7] else ''}</p>"
+            f"<p style='font-size:13px;margin:0 0 4px 0;'>{r[3] or ''}</p>"
+            f"<p style='font-size:13px;color:#16a34a;margin:0 0 6px 0;'><strong>Relevancia:</strong> {r[4] or ''}</p>"
+            f"<a href='{r[6]}' style='font-size:12px;color:#6366f1;'>Leer artículo &rarr;</a>"
+            f"</div>"
+        )
+
+    try:
+        smtp_host = config.get("smtp_host", "smtp.gmail.com")
+        smtp_port = int(config.get("smtp_port", 587))
+        sender = config["email_sender"]
+        password = config.get("email_password", config.get("email_sender_password", ""))
+        recipient = config["email_recipient"]
+
+        msg = MIMEMultipart("alternative")
+        msg["From"] = sender
+        msg["To"] = recipient
+        msg["Subject"] = "Top artículos de la semana — CM Pro"
+        msg.attach(MIMEText(body, "html"))
+
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
+            smtp.starttls()
+            smtp.login(sender, password)
+            smtp.send_message(msg)
+
+        log_report(conn, "weekly_intelligence", "email", "ok")
+        return {"status": "ok", "articles": len(rows)}
+    except Exception as e:
+        logger.warning(f"weekly intelligence email failed: {e}")
+        log_report(conn, "weekly_intelligence", "email", "error", str(e))
+        return {"status": "error", "error": str(e)}
