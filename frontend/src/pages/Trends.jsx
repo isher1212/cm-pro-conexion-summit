@@ -1,16 +1,20 @@
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, TrendingUp, Video, Lightbulb, Zap } from 'lucide-react'
+import { RefreshCw, TrendingUp, Video, Lightbulb, Zap, Hash, Briefcase, ExternalLink } from 'lucide-react'
 
-const PLATFORMS = ['Todas', 'Google Trends', 'YouTube']
+const PLATFORMS = ['Todas', 'Google Trends', 'YouTube', 'TikTok', 'LinkedIn']
 
 const platformIcon = {
-  'Google Trends': <TrendingUp size={13} />,
-  'YouTube': <Video size={13} />,
+  'Google Trends': <TrendingUp size={12} />,
+  'YouTube': <Video size={12} />,
+  'TikTok': <Hash size={12} />,
+  'LinkedIn': <Briefcase size={12} />,
 }
 
 const platformColor = {
-  'Google Trends': 'bg-blue-50 text-blue-600',
+  'Google Trends': 'bg-purple-50 text-purple-600',
   'YouTube': 'bg-red-50 text-red-600',
+  'TikTok': 'bg-pink-50 text-pink-600',
+  'LinkedIn': 'bg-blue-50 text-blue-600',
 }
 
 function TrendCard({ trend }) {
@@ -124,9 +128,15 @@ function TrendCard({ trend }) {
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-3 mb-3">
-        <h3 className="text-sm font-semibold text-gray-900 leading-snug flex-1">
-          {trend.keyword}
-        </h3>
+        <div className="flex items-center gap-2 flex-1">
+          <h3 className="text-sm font-semibold text-gray-900 leading-snug">{trend.keyword}</h3>
+          {trend.source_url && (
+            <a href={trend.source_url} target="_blank" rel="noreferrer"
+              className="text-indigo-400 hover:text-indigo-600 flex-shrink-0">
+              <ExternalLink size={14} />
+            </a>
+          )}
+        </div>
         <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full flex-shrink-0 font-medium ${platformColor[trend.platform] || 'bg-gray-50 text-gray-500'}`}>
           {platformIcon[trend.platform]}
           {trend.platform}
@@ -153,9 +163,18 @@ function TrendCard({ trend }) {
       )}
 
       {trend.post_idea && (
-        <div className="flex gap-2 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
-          <Lightbulb size={13} className="text-green-500 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-green-700 font-medium">{trend.post_idea}</p>
+        <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-3">
+          <div className="flex gap-2 items-start">
+            <Lightbulb size={13} className="text-green-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs text-green-700 font-medium mb-2">{trend.post_idea}</p>
+              <button
+                onClick={() => { setPanel(true); setExtraSpecs(trend.post_idea || '') }}
+                className="text-xs text-green-700 hover:text-green-900 font-semibold underline">
+                ✨ Generar este contenido con IA
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -290,6 +309,7 @@ export default function Trends() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [searchCount, setSearchCount] = useState(5)
   const [searching, setSearching] = useState(false)
+  const [searchPlatform, setSearchPlatform] = useState('Google Trends')
 
   const fetchTrends = useCallback(async () => {
     setLoading(true)
@@ -320,6 +340,7 @@ export default function Trends() {
         body: JSON.stringify({
           keywords: searchKeyword.split(',').map(k => k.trim()).filter(Boolean),
           limit: searchCount,
+          platform: searchPlatform,
         }),
       })
       fetchTrends()
@@ -380,25 +401,24 @@ export default function Trends() {
       </div>
 
       {/* Búsqueda manual de tendencias */}
-          <div className="flex gap-2 items-center mb-6">
-            <input
-              value={searchKeyword}
-              onChange={e => setSearchKeyword(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleManualSearch()}
-              placeholder="Buscar tendencia: ej. IA educación, startups salud..."
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            />
-            <input
-              type="number" min={1} max={20} value={searchCount}
-              onChange={e => setSearchCount(parseInt(e.target.value))}
-              className="w-16 border border-gray-200 rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              title="Cantidad de resultados"
-            />
-            <button onClick={handleManualSearch} disabled={searching || !searchKeyword.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50 whitespace-nowrap">
-              {searching ? '⏳' : 'Buscar'}
-            </button>
-          </div>
+      <div className="flex gap-2 items-center mb-6 flex-wrap">
+        <select value={searchPlatform} onChange={e => setSearchPlatform(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          {['Google Trends', 'YouTube', 'TikTok', 'LinkedIn'].map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <input value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleManualSearch()}
+          placeholder="Buscar tendencia: ej. IA educación..."
+          className="flex-1 min-w-[200px] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        <input type="number" min={1} max={20} value={searchCount}
+          onChange={e => setSearchCount(parseInt(e.target.value))}
+          className="w-16 border border-gray-200 rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          title="Cantidad de resultados" />
+        <button onClick={handleManualSearch} disabled={searching || !searchKeyword.trim()}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50 whitespace-nowrap">
+          {searching ? '⏳' : 'Buscar'}
+        </button>
+      </div>
 
       {error && (
         <div className="bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-lg mb-4">
