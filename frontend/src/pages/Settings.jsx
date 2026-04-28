@@ -95,17 +95,29 @@ export default function Settings() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Modelo de imagen Kie AI</label>
               <select
-                value={cfg.kie_ai_model || 'flux-dev'}
+                value={cfg.kie_ai_model || 'nano-banana-2'}
                 onChange={e => updateField('kie_ai_model', e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
               >
-                <option value="flux-schnell">Flux Schnell — rápido, económico</option>
-                <option value="flux-dev">Flux Dev — equilibrio calidad/precio (recomendado)</option>
-                <option value="flux-pro">Flux Pro — máxima calidad</option>
-                <option value="kling-v1">Kling v1 — estilo realista</option>
-                <option value="kling-v1-5">Kling v1.5 — realista mejorado</option>
+                <option value="nano-banana-2">Google Nano Banana 2 (recomendado)</option>
+                <option value="flux-dev">Flux Dev</option>
+                <option value="flux-pro">Flux Pro</option>
+                <option value="kling-v1">Kling v1</option>
+                <option value="kling-v1-5">Kling v1.5</option>
               </select>
-              <p className="text-xs text-gray-400 mt-1">El modelo afecta la calidad y el costo por imagen. Flux Dev es el punto dulce.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Resolución de imagen</label>
+              <select
+                value={cfg.kie_ai_resolution || '1K'}
+                onChange={e => updateField('kie_ai_resolution', e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              >
+                <option value="1K">1K — $0.04/imagen (recomendado)</option>
+                <option value="2K">2K — $0.06/imagen</option>
+                <option value="4K">4K — $0.09/imagen</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">Para redes sociales, 1K es más que suficiente.</p>
             </div>
           </div>
         </section>
