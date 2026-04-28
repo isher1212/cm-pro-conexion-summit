@@ -28,9 +28,15 @@ export default function Cleanup() {
   useEffect(() => { load() }, [load])
 
   async function saveCfg(patch) {
+    const prev = cfg
     const newCfg = { ...cfg, ...patch }
     setCfg(newCfg)
-    await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newCfg) })
+    try {
+      const r = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newCfg) })
+      if (!r.ok) throw new Error('error')
+    } catch {
+      setCfg(prev)
+    }
   }
 
   async function runDryRun() {

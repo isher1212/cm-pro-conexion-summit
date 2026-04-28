@@ -17,19 +17,26 @@ export default function Saved() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    if (tab !== 'all') params.set('item_type', tab)
-    if (search) params.set('search', search)
-    if (dateRange.from) params.set('from_date', dateRange.from)
-    if (dateRange.to) params.set('to_date', dateRange.to)
-    const res = await fetch('/api/saved?' + params.toString())
-    setItems(await res.json())
-    setLoading(false)
+    try {
+      const params = new URLSearchParams()
+      if (tab !== 'all') params.set('item_type', tab)
+      if (search) params.set('search', search)
+      if (dateRange.from) params.set('from_date', dateRange.from)
+      if (dateRange.to) params.set('to_date', dateRange.to)
+      const res = await fetch('/api/saved?' + params.toString())
+      if (!res.ok) throw new Error('error')
+      setItems(await res.json())
+    } catch {
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
   }, [tab, search, dateRange])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
   async function handleDelete(id) {
+    if (!confirm('¿Eliminar este elemento guardado?')) return
     await fetch(`/api/saved/${id}`, { method: 'DELETE' })
     fetchAll()
   }

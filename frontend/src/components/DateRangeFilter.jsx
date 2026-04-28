@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Calendar } from 'lucide-react'
 
 const PRESETS = [
@@ -15,6 +15,13 @@ export default function DateRangeFilter({ value, onChange }) {
   const [preset, setPreset] = useState(value?.preset || 'default')
   const [from, setFrom] = useState(value?.from || '')
   const [to, setTo] = useState(value?.to || '')
+
+  // Sincronizar con cambios externos de value
+  useEffect(() => {
+    if (value?.preset !== undefined) setPreset(value.preset)
+    if (value?.from !== undefined) setFrom(value.from)
+    if (value?.to !== undefined) setTo(value.to)
+  }, [value?.preset, value?.from, value?.to])
 
   function pick(p) {
     setPreset(p.val)

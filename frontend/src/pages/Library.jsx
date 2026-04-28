@@ -13,14 +13,20 @@ export default function Library() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    if (platform) params.set('platform', platform)
-    if (search) params.set('search', search)
-    if (dateRange.from) params.set('from_date', dateRange.from)
-    if (dateRange.to) params.set('to_date', dateRange.to)
-    const res = await fetch('/api/library/images?' + params.toString())
-    setImages(await res.json())
-    setLoading(false)
+    try {
+      const params = new URLSearchParams()
+      if (platform) params.set('platform', platform)
+      if (search) params.set('search', search)
+      if (dateRange.from) params.set('from_date', dateRange.from)
+      if (dateRange.to) params.set('to_date', dateRange.to)
+      const res = await fetch('/api/library/images?' + params.toString())
+      if (!res.ok) throw new Error('error')
+      setImages(await res.json())
+    } catch {
+      setImages([])
+    } finally {
+      setLoading(false)
+    }
   }, [platform, search, dateRange])
 
   useEffect(() => { fetchAll() }, [fetchAll])
@@ -87,7 +93,11 @@ export default function Library() {
       <div className="mt-6">
         <HistoricalArchive
           endpoint="/api/library/archive-by-month"
-          onSelectMonth={month => setDateRange({ preset: 'custom', from: `${month}-01`, to: `${month}-31` })}
+          onSelectMonth={month => {
+            const [y, m] = month.split('-').map(Number)
+            const lastDay = new Date(y, m, 0).getDate()
+            setDateRange({ preset: 'custom', from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, '0')}` })
+          }}
         />
       </div>
     </div>

@@ -4,10 +4,16 @@ import { ChevronRight, ChevronDown } from 'lucide-react'
 export default function HistoricalArchive({ endpoint, onSelectMonth }) {
   const [months, setMonths] = useState([])
   const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!open) return
-    fetch(endpoint).then(r => r.json()).then(d => setMonths(Array.isArray(d) ? d : [])).catch(() => {})
+    setLoading(true)
+    fetch(endpoint)
+      .then(r => r.json())
+      .then(d => setMonths(Array.isArray(d) ? d : []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [open, endpoint])
 
   const monthLabel = (ym) => {
@@ -23,8 +29,9 @@ export default function HistoricalArchive({ endpoint, onSelectMonth }) {
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />} 📅 Histórico por mes
       </summary>
       <div className="mt-3 space-y-1">
-        {months.length === 0 && <p className="text-xs text-gray-400">No hay histórico aún.</p>}
-        {months.map(m => (
+        {loading && <p className="text-xs text-gray-400">Cargando...</p>}
+        {!loading && months.length === 0 && <p className="text-xs text-gray-400">No hay histórico aún.</p>}
+        {!loading && months.map(m => (
           <button key={m.month} onClick={() => onSelectMonth(m.month)}
             className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white text-sm text-gray-700 transition-colors">
             <span>{monthLabel(m.month)}</span>

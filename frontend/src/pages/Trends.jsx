@@ -201,15 +201,19 @@ function TrendCard({ trend, fetchAll }) {
         )}
         {!trend.discarded ? (
           <button onClick={async () => {
-            await fetch(`/api/trends/${trend.id}/discard`, { method: 'POST' })
-            if (fetchAll) fetchAll()
+            try {
+              const r = await fetch(`/api/trends/${trend.id}/discard`, { method: 'POST' })
+              if (r.ok && fetchAll) fetchAll()
+            } catch {}
           }} className="text-xs text-gray-400 hover:text-red-500">
             🗑 Descartar
           </button>
         ) : (
           <button onClick={async () => {
-            await fetch(`/api/trends/${trend.id}/restore`, { method: 'POST' })
-            if (fetchAll) fetchAll()
+            try {
+              const r = await fetch(`/api/trends/${trend.id}/restore`, { method: 'POST' })
+              if (r.ok && fetchAll) fetchAll()
+            } catch {}
           }} className="text-xs text-amber-600 hover:text-amber-800">
             ↩ Restaurar
           </button>
@@ -550,7 +554,11 @@ export default function Trends() {
       <div className="mt-6">
         <HistoricalArchive
           endpoint="/api/trends/archive-by-month"
-          onSelectMonth={month => setDateRange({ preset: 'custom', from: `${month}-01`, to: `${month}-31` })}
+          onSelectMonth={month => {
+            const [y, m] = month.split('-').map(Number)
+            const lastDay = new Date(y, m, 0).getDate()
+            setDateRange({ preset: 'custom', from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, '0')}` })
+          }}
         />
       </div>
     </div>

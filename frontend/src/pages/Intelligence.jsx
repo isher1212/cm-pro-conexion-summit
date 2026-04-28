@@ -148,15 +148,19 @@ function ArticleCard({ article }) {
         )}
         {!article.discarded ? (
           <button onClick={async () => {
-            await fetch(`/api/intelligence/articles/${article.id}/discard`, { method: 'POST' })
-            window.dispatchEvent(new CustomEvent('cm-refresh-articles'))
+            try {
+              const r = await fetch(`/api/intelligence/articles/${article.id}/discard`, { method: 'POST' })
+              if (r.ok) window.dispatchEvent(new CustomEvent('cm-refresh-articles'))
+            } catch {}
           }} className="text-xs text-gray-400 hover:text-red-500">
             🗑 Descartar
           </button>
         ) : (
           <button onClick={async () => {
-            await fetch(`/api/intelligence/articles/${article.id}/restore`, { method: 'POST' })
-            window.dispatchEvent(new CustomEvent('cm-refresh-articles'))
+            try {
+              const r = await fetch(`/api/intelligence/articles/${article.id}/restore`, { method: 'POST' })
+              if (r.ok) window.dispatchEvent(new CustomEvent('cm-refresh-articles'))
+            } catch {}
           }} className="text-xs text-amber-600 hover:text-amber-800">
             ↩ Restaurar
           </button>
@@ -347,7 +351,11 @@ export default function Intelligence() {
       <div className="mt-6">
         <HistoricalArchive
           endpoint="/api/intelligence/archive-by-month"
-          onSelectMonth={month => setDateRange({ preset: 'custom', from: `${month}-01`, to: `${month}-31` })}
+          onSelectMonth={month => {
+            const [y, m] = month.split('-').map(Number)
+            const lastDay = new Date(y, m, 0).getDate()
+            setDateRange({ preset: 'custom', from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, '0')}` })
+          }}
         />
       </div>
     </div>
