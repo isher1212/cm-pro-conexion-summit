@@ -46,6 +46,38 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
   const [editing, setEditing] = useState(false)
   const [caption, setCaption] = useState(proposal.caption_draft)
   const [date, setDate] = useState(proposal.suggested_date)
+  const [imgPanel, setImgPanel] = useState(false)
+  const [imgSpecs, setImgSpecs] = useState('')
+  const [imgCount, setImgCount] = useState(2)
+  const [imgGenerating, setImgGenerating] = useState(false)
+  const [imgUrls, setImgUrls] = useState(() => {
+    try { return JSON.parse(proposal.image_urls || '[]') } catch { return [] }
+  })
+
+  const isCarousel = proposal.format === 'Carrusel'
+
+  async function handleGenerateImages() {
+    setImgGenerating(true)
+    try {
+      const res = await fetch('/api/images/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposal_id: proposal.id,
+          topic: proposal.topic,
+          platform: proposal.platform,
+          caption_draft: proposal.caption_draft,
+          extra_specs: imgSpecs,
+          n: isCarousel ? imgCount : 1,
+        }),
+      })
+      const data = await res.json()
+      if (data.urls?.length) setImgUrls(data.urls)
+    } finally {
+      setImgGenerating(false)
+      setImgPanel(false)
+    }
+  }
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -151,6 +183,54 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
           )}
         </div>
       </div>
+
+          {/* Image panel */}
+          <div className="mt-3 pt-3 border-t border-gray-50">
+            {imgUrls.length > 0 && (
+              <div className="flex gap-2 flex-wrap mb-2">
+                {imgUrls.map((url, i) => (
+                  <div key={i} className="relative group">
+                    <img src={url} alt="" className="w-20 h-20 object-cover rounded-lg border border-gray-100" />
+                    <a href={url} target="_blank" rel="noreferrer"
+                      className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-lg transition-colors" />
+                  </div>
+                ))}
+              </div>
+            )}
+            {imgPanel ? (
+              <div className="space-y-2">
+                <textarea
+                  value={imgSpecs}
+                  onChange={e => setImgSpecs(e.target.value)}
+                  placeholder="Especificaciones adicionales (opcional): colores, estilo, elementos visuales..."
+                  rows={2}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs resize-none"
+                />
+                {isCarousel && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-500">Imágenes del carrusel:</label>
+                    <input
+                      type="number" min={2} max={10} value={imgCount}
+                      onChange={e => setImgCount(parseInt(e.target.value))}
+                      className="w-16 border border-gray-200 rounded px-2 py-1 text-xs"
+                    />
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={handleGenerateImages} disabled={imgGenerating}
+                    className="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">
+                    {imgGenerating ? '⏳ Generando...' : '✨ Generar'}
+                  </button>
+                  <button onClick={() => setImgPanel(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setImgPanel(true)}
+                className="text-xs text-violet-600 hover:text-violet-800 font-medium">
+                {imgUrls.length ? '🔄 Regenerar imagen' : '🖼 Generar imagen'}
+              </button>
+            )}
+          </div>
     </div>
   )
 }
