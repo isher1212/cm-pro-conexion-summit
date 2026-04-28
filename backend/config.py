@@ -122,6 +122,17 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "custom_metrics": [],
     "auto_sync_on_open": False,
     "auto_sync_threshold_hours": 12,
+    "cleanup_articles_enabled": False,
+    "cleanup_articles_days": 90,
+    "cleanup_trends_enabled": False,
+    "cleanup_trends_days": 60,
+    "cleanup_images_enabled": False,
+    "cleanup_images_days": 180,
+    "cleanup_notifications_enabled": True,
+    "cleanup_notifications_days": 30,
+    "cleanup_ai_usage_enabled": False,
+    "cleanup_ai_usage_days": 365,
+    "cleanup_run_hour": 3,
 }
 
 

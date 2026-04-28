@@ -525,6 +525,40 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         conn.commit()
     except Exception:
         pass
+    # Phase 19 migrations
+    try:
+        conn.execute("ALTER TABLE articles ADD COLUMN discarded INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE articles ADD COLUMN discarded_at TEXT")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE trends ADD COLUMN discarded INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE trends ADD COLUMN discarded_at TEXT")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS cleanup_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                table_name TEXT NOT NULL,
+                deleted_count INTEGER DEFAULT 0,
+                criteria TEXT,
+                run_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 _conn: sqlite3.Connection | None = None
