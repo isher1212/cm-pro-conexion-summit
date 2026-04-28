@@ -78,6 +78,11 @@ COMO_PROMOVERLO: [formatos y plataformas recomendados, máx 2 líneas]"""
             max_tokens=400,
             temperature=0.4,
         )
+        try:
+            from backend.services.ai_usage import log_openai_usage
+            log_openai_usage("gpt-4o-mini", response, context="trends/analyze")
+        except Exception:
+            pass
         text = response.choices[0].message.content or ""
         result = {"resumen": "", "usos": "", "oportunidades": "", "como_abordarlo": "", "como_promoverlo": ""}
         for line in text.split("\n"):

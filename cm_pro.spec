@@ -43,6 +43,8 @@ hiddenimports = [
     "backend.routers.image_router",
     "backend.routers.saved_router",
     "backend.routers.library_router",
+    "backend.routers.ai_usage_router",
+    "backend.services.ai_usage",
     "backend.services.image_gen",
     "backend.services.intelligence",
     "backend.services.trends",

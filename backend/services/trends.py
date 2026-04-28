@@ -162,6 +162,11 @@ def analyze_trend(keyword: str, platform: str, openai_client: Any, brand_context
             max_tokens=400,
             temperature=0.4,
         )
+        try:
+            from backend.services.ai_usage import log_openai_usage
+            log_openai_usage("gpt-4o-mini", response, context="trends/analyze-keyword")
+        except Exception:
+            pass
         text = response.choices[0].message.content or ""
         result = {"description": "", "why_trending": "", "how_to_apply": "", "post_idea": ""}
         for line in text.split("\n"):
@@ -259,6 +264,11 @@ IDEA_POST: [idea concreta de post para esta tendencia, máx 1 línea]"""
             max_tokens=300,
             temperature=0.5,
         )
+        try:
+            from backend.services.ai_usage import log_openai_usage
+            log_openai_usage("gpt-4o-mini", response, context="trends/analyze-keyword")
+        except Exception:
+            pass
         text = response.choices[0].message.content or ""
         result = {"description": "", "why_trending": "", "how_to_apply": "", "post_idea": ""}
         for line in text.split("\n"):

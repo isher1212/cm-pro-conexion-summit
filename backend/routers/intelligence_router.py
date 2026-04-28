@@ -120,6 +120,11 @@ COMO_PROMOVERLO: [cómo mostrarlo en redes/la marca, máx 2 líneas]"""
             max_tokens=400,
             temperature=0.4,
         )
+        try:
+            from backend.services.ai_usage import log_openai_usage
+            log_openai_usage("gpt-4o-mini", response, context="intelligence/analyze")
+        except Exception:
+            pass
         text = response.choices[0].message.content or ""
         result = {"resumen": "", "aplicacion": "", "alcance": "", "como_abordarlo": "", "como_promoverlo": ""}
         for line in text.split("\n"):
@@ -161,6 +166,11 @@ def reprocess_articles(body: dict = None):
                 max_tokens=300,
                 temperature=0.4,
             )
+            try:
+                from backend.services.ai_usage import log_openai_usage
+                log_openai_usage("gpt-4o-mini", response, context="intelligence/reprocess")
+            except Exception:
+                pass
             text = response.choices[0].message.content or ""
             title_es = ""; summary = ""; relevance = ""; score = 0
             for line in text.split("\n"):

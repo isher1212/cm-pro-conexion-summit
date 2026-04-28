@@ -80,6 +80,11 @@ def summarize_article(title: str, content: str, source: str, openai_client: Any,
             max_tokens=300,
             temperature=0.3,
         )
+        try:
+            from backend.services.ai_usage import log_openai_usage
+            log_openai_usage("gpt-4o-mini", response, context="intelligence/summarize")
+        except Exception:
+            pass
         text = response.choices[0].message.content or ""
         result = {"title_es": "", "summary": "", "relevance": "", "relevance_score": 0}
         for line in text.split("\n"):

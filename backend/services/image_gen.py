@@ -149,6 +149,11 @@ def generate_images(
                 conn.commit()
             except Exception as e:
                 logger.warning(f"image_library insert failed: {e}")
+            try:
+                from backend.services.ai_usage import log_kie_usage
+                log_kie_usage(model, resolution, len(urls), context=f"images/{platform}")
+            except Exception as e:
+                logger.warning(f"log_kie_usage failed: {e}")
     return all_urls
 
 
@@ -194,6 +199,11 @@ def generate_video_script(
             max_tokens=600,
             temperature=0.5,
         )
+        try:
+            from backend.services.ai_usage import log_openai_usage
+            log_openai_usage("gpt-4o-mini", response, context="images/video-script")
+        except Exception:
+            pass
         text = response.choices[0].message.content or ""
         for line in text.split("\n"):
             line = line.strip()
@@ -256,6 +266,11 @@ def generate_proposal_from_article(
             max_tokens=400,
             temperature=0.5,
         )
+        try:
+            from backend.services.ai_usage import log_openai_usage
+            log_openai_usage("gpt-4o-mini", response, context="images/article-to-proposal")
+        except Exception:
+            pass
         text = response.choices[0].message.content or ""
         for line in text.split("\n"):
             line = line.strip()
