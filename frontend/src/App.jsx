@@ -16,6 +16,7 @@ import Summit from './pages/Summit'
 import Brand from './pages/Brand'
 import Team from './pages/Team'
 import Integrations from './pages/Integrations'
+import ImageEditor from './pages/ImageEditor'
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/brand" element={<Brand />} />
           <Route path="/team" element={<Team />} />
           <Route path="/integrations" element={<Integrations />} />
+          <Route path="/editor" element={<ImageEditor />} />
         </Routes>
       </Layout>
     </BrowserRouter>

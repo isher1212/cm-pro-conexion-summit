@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Trash2, Edit2 } from 'lucide-react'
 
 export default function Library() {
   const [images, setImages] = useState([])
@@ -58,6 +59,10 @@ export default function Library() {
               <div className="p-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-gray-400">{img.platform || '—'} · {img.aspect_ratio || ''}</span>
+                  <Link to={`/editor?url=${encodeURIComponent(img.url)}`}
+                    className="text-indigo-400 hover:text-indigo-600" title="Editar">
+                    <Edit2 size={12} />
+                  </Link>
                   <button onClick={() => handleDelete(img.id)} className="text-red-300 hover:text-red-500" title="Eliminar">
                     <Trash2 size={12} />
                   </button>
