@@ -9,34 +9,41 @@ logger = logging.getLogger(__name__)
 # ── Google Trends ──────────────────────────────────────────────────────────────
 
 def fetch_google_trends(keywords: list[str], geo: str = "CO") -> list[dict]:
-    """Fetch trending keywords from Google Trends for the given geo."""
+    """Fetch daily trending searches from Google Trends — no pandas required."""
     try:
-        from pytrends.request import TrendReq
-        pytrends = TrendReq(hl="es-CO", tz=300, timeout=(10, 25))
+        import httpx
+        import json
+        from datetime import datetime as _dt
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept-Language": "es-CO,es;q=0.9",
+        }
+        today = _dt.now().strftime("%Y%m%d")
+        url = f"https://trends.google.com/trends/api/dailytrends?hl=es-419&geo={geo}&ed={today}&ns=15"
+        resp = httpx.get(url, headers=headers, timeout=15, follow_redirects=True)
+        text = resp.text.lstrip(")]}'\n")
+        data = json.loads(text)
+        trending_days = data.get("default", {}).get("trendingSearchesDays", [])
         results = []
-        # Process in batches of 5 (pytrends limit)
-        for i in range(0, len(keywords), 5):
-            batch = keywords[i:i + 5]
-            try:
-                pytrends.build_payload(batch, geo=geo, timeframe="now 7-d")
-                interest = pytrends.interest_over_time()
-                if interest.empty:
-                    continue
-                for kw in batch:
-                    if kw in interest.columns:
-                        avg_interest = int(interest[kw].mean())
-                        if avg_interest > 0:
-                            results.append({
-                                "keyword": kw,
-                                "platform": "Google Trends",
-                                "interest_score": avg_interest,
-                            })
-            except Exception as e:
-                logger.warning(f"Google Trends batch failed for {batch}: {e}")
+        for day in trending_days:
+            for search in day.get("trendingSearches", []):
+                title = search.get("title", {}).get("query", "").strip()
+                if title and len(results) < 5:
+                    results.append({
+                        "keyword": title,
+                        "platform": "Google Trends",
+                        "interest_score": search.get("formattedTraffic", ""),
+                    })
+            if len(results) >= 5:
+                break
+        if not results:
+            # Fallback: use configured keywords directly
+            results = [{"keyword": kw, "platform": "Google Trends", "interest_score": 0} for kw in keywords[:5]]
         return results
     except Exception as e:
         logger.warning(f"Google Trends unavailable: {e}")
-        return []
+        keywords_default = keywords or ["emprendimiento Colombia", "startups LATAM", "innovacion empresas"]
+        return [{"keyword": kw, "platform": "Google Trends", "interest_score": 0} for kw in keywords_default[:5]]
 
 
 # ── YouTube Trending ───────────────────────────────────────────────────────────
@@ -68,8 +75,16 @@ def fetch_youtube_trending(max_items: int = 5) -> list[dict]:
         return []
 
 
+_YT_UI_NOISE = {
+    "general", "reproducción", "principal", "combinaciones de teclas",
+    "busca algo para comenzar", "inicio", "shorts", "suscripciones",
+    "biblioteca", "historial", "explorar", "tendencias", "música",
+    "películas", "videojuegos", "noticias", "deportes", "aprendizaje",
+    "moda", "podcasts", "en vivo",
+}
+
 def _fetch_youtube_via_search(max_items: int = 5) -> list[dict]:
-    """Fallback: scrape YouTube trending page titles using httpx."""
+    """Fallback: scrape YouTube trending page for real video titles."""
     try:
         import httpx
         import re
@@ -83,13 +98,17 @@ def _fetch_youtube_via_search(max_items: int = 5) -> list[dict]:
             follow_redirects=True,
             timeout=15,
         )
-        titles = re.findall(r'"title":\{"runs":\[\{"text":"([^"]{5,80})"\}', resp.text)
+        # Match video titles from YouTube's JSON payload — longer strings are real titles
+        titles = re.findall(r'"title":\{"runs":\[\{"text":"([^"]{15,120})"\}', resp.text)
         seen = set()
         unique = []
         for t in titles:
-            if t not in seen:
-                seen.add(t)
-                unique.append(t)
+            t_clean = t.strip()
+            if t_clean.lower() in _YT_UI_NOISE:
+                continue
+            if t_clean not in seen:
+                seen.add(t_clean)
+                unique.append(t_clean)
                 if len(unique) >= max_items:
                     break
         return [{"keyword": t, "platform": "YouTube"} for t in unique]
