@@ -99,12 +99,12 @@ def store_proposal(conn: sqlite3.Connection, proposal: dict) -> None:
 def get_proposals(conn: sqlite3.Connection, status: str = "", limit: int = 100) -> list[dict]:
     if status:
         cursor = conn.execute(
-            "SELECT * FROM content_proposals WHERE status = ? ORDER BY suggested_date ASC, created_at DESC LIMIT ?",
+            "SELECT * FROM content_proposals WHERE status = ? ORDER BY order_index ASC, created_at DESC LIMIT ?",
             (status, limit),
         )
     else:
         cursor = conn.execute(
-            "SELECT * FROM content_proposals ORDER BY suggested_date ASC, created_at DESC LIMIT ?",
+            "SELECT * FROM content_proposals ORDER BY order_index ASC, created_at DESC LIMIT ?",
             (limit,),
         )
     return [dict(row) for row in cursor.fetchall()]

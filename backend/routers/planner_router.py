@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Query
 from backend.database import get_db
 from backend.config import load_config
@@ -6,6 +7,8 @@ from backend.services.planner import (
     store_proposal, get_proposals, update_proposal_status,
     update_proposal, generate_proposals,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -78,3 +81,26 @@ def _get_openai_client(config: dict):
         return None
     from openai import OpenAI
     return OpenAI(api_key=api_key)
+
+
+@router.patch("/planner/proposals/reorder")
+def reorder_proposals(body: dict):
+    """
+    Body: { ordered_ids: [int, ...] }
+    Asigna order_index = 0..N-1 según el orden recibido.
+    """
+    ordered_ids = body.get("ordered_ids", [])
+    if not isinstance(ordered_ids, list):
+        return {"error": "ordered_ids debe ser lista"}
+    conn = get_db()
+    try:
+        for idx, pid in enumerate(ordered_ids):
+            try:
+                conn.execute("UPDATE content_proposals SET order_index = ? WHERE id = ?", (idx, int(pid)))
+            except (ValueError, TypeError):
+                continue
+        conn.commit()
+        return {"status": "ok", "count": len(ordered_ids)}
+    except Exception as e:
+        logger.warning(f"reorder failed: {e}")
+        return {"error": str(e)}

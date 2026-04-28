@@ -619,14 +619,20 @@ export default function Planner() {
     }
   }
 
-  function handleDragEnd(event) {
+  async function handleDragEnd(event) {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    setProposals(prev => {
-      const oldIdx = prev.findIndex(p => p.id === active.id)
-      const newIdx = prev.findIndex(p => p.id === over.id)
-      return arrayMove(prev, oldIdx, newIdx)
-    })
+    const reordered = arrayMove(proposals, proposals.findIndex(p => p.id === active.id), proposals.findIndex(p => p.id === over.id))
+    setProposals(reordered)
+    try {
+      await fetch('/api/planner/proposals/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ordered_ids: reordered.map(p => p.id) }),
+      })
+    } catch (e) {
+      console.error('reorder failed', e)
+    }
   }
 
   return (
