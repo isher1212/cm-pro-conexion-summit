@@ -3,8 +3,8 @@ import { LayoutDashboard, TrendingUp, Newspaper, Flame, Bookmark, Calendar, Mail
 import NotificationsBell from './NotificationsBell'
 
 const links = [
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/summit', icon: Trophy, label: 'Conexión Summit' },
-  { to: '/', icon: LayoutDashboard, label: 'Overview' },
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
   { to: '/intelligence', icon: Newspaper, label: 'Inteligencia' },
   { to: '/trends', icon: Flame, label: 'Tendencias' },
@@ -16,7 +16,6 @@ const links = [
   { to: '/reports', icon: Mail, label: 'Reportes' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
   { to: '/brand', icon: Award, label: 'Marca' },
-  { to: '/team', icon: Users, label: 'Equipo' },
   { to: '/integrations', icon: Plug, label: 'Integraciones' },
 ]
 

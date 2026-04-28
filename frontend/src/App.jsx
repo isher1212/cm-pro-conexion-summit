@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
+import Dashboard from './pages/Dashboard'
 import Overview from './pages/Overview'
 import Analytics from './pages/Analytics'
 import Intelligence from './pages/Intelligence'
@@ -22,7 +23,8 @@ export default function App() {
       <Layout>
         <Routes>
           <Route path="/summit" element={<Summit />} />
-          <Route path="/" element={<Overview />} />
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/overview" element={<Overview />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/intelligence" element={<Intelligence />} />
           <Route path="/trends" element={<Trends />} />
