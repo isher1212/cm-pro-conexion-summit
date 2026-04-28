@@ -227,18 +227,16 @@ function TrendCard({ trend }) {
           </button>
         ) : (
           <div className="space-y-2">
-            {isYouTube && (
-              <div className="flex gap-2">
-                <button onClick={() => setMode('image')}
-                  className={`text-xs px-2.5 py-1 rounded-lg border ${mode === 'image' ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                  🖼 Imagen
-                </button>
-                <button onClick={() => setMode('video_script')}
-                  className={`text-xs px-2.5 py-1 rounded-lg border ${mode === 'video_script' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                  🎬 Guión
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={() => setMode('image')}
+                className={`text-xs px-2.5 py-1 rounded-lg border ${mode === 'image' ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                🖼 Imagen
+              </button>
+              <button onClick={() => setMode('video_script')}
+                className={`text-xs px-2.5 py-1 rounded-lg border ${mode === 'video_script' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                🎬 Guión + voz en off
+              </button>
+            </div>
             <div className="flex gap-2 flex-wrap">
               {['Instagram', 'TikTok', 'LinkedIn'].map(p => (
                 <button key={p} onClick={() => setTargetPlatform(p)}
@@ -274,13 +272,21 @@ function TrendCard({ trend }) {
                   </div>
                 )}
                 {result.script?.hook && (
-                  <div className="space-y-1">
-                    {[['🎣 Hook', result.script.hook], ['📖 Desarrollo', result.script.desarrollo], ['📢 CTA', result.script.cta]].map(([label, val]) => val ? (
-                      <div key={label}>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'hook', label: '🎣 Hook' },
+                      { key: 'desarrollo', label: '📖 Desarrollo' },
+                      { key: 'cta', label: '📢 CTA' },
+                      { key: 'voz_en_off', label: '🎙 Voz en off' },
+                    ].map(({ key, label }) => result.script[key] ? (
+                      <div key={key}>
                         <p className="text-xs font-medium text-violet-700">{label}</p>
-                        <p className="text-xs text-violet-900">{val}</p>
+                        <p className="text-xs text-violet-900 leading-relaxed">{result.script[key]}</p>
                       </div>
                     ) : null)}
+                    {result.script.duracion && (
+                      <p className="text-xs text-violet-400 mt-1">⏱ {result.script.duracion}s</p>
+                    )}
                   </div>
                 )}
                 {!sent ? (

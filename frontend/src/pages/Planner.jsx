@@ -207,6 +207,7 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
 
           {editing ? (
             <div className="space-y-2">
+              <TemplateSelector onSelect={text => setCaption(text)} />
               <textarea
                 value={caption}
                 onChange={e => setCaption(e.target.value)}
@@ -575,6 +576,64 @@ function MonthCalendar({ proposals }) {
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ── Template selector ─────────────────────────────────────────────────────────
+function TemplateSelector({ onSelect }) {
+  const [templates, setTemplates] = useState([])
+  const [open, setOpen] = useState(false)
+  const [selected, setSelected] = useState(null)
+  const [values, setValues] = useState({})
+
+  useEffect(() => {
+    fetch('/api/templates').then(r => r.json()).then(d => setTemplates(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [])
+
+  if (templates.length === 0) return null
+  return (
+    <div className="mb-2">
+      <button type="button" onClick={() => setOpen(v => !v)} className="text-xs text-indigo-600 hover:text-indigo-800">
+        📝 Usar plantilla {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
+          <select value={selected?.id || ''} onChange={e => {
+            const t = templates.find(x => x.id === parseInt(e.target.value))
+            setSelected(t || null)
+            setValues({})
+          }} className="w-full border border-gray-200 rounded px-2 py-1 text-sm">
+            <option value="">Elige una plantilla...</option>
+            {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          {selected && (selected.variables || []).length > 0 && (
+            <div className="space-y-1">
+              {(selected.variables || []).map(v => (
+                <input key={v} placeholder={v}
+                  value={values[v] || ''}
+                  onChange={e => setValues(prev => ({ ...prev, [v]: e.target.value }))}
+                  className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
+              ))}
+            </div>
+          )}
+          {selected && (
+            <button type="button" onClick={async () => {
+              const r = await fetch(`/api/templates/${selected.id}/render`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ values }),
+              })
+              const data = await r.json()
+              if (data.rendered) {
+                onSelect(data.rendered)
+                setOpen(false)
+              }
+            }} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded-lg">
+              Aplicar plantilla al copy
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
