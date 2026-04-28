@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Query
 from backend.database import get_db
 from backend.config import load_config
-from backend.services.trends import get_trends, run_trends_cycle
+from backend.services.trends import get_trends, run_trends_cycle, _analyze_keyword_with_gpt, store_trend
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -14,7 +14,16 @@ def list_trends(
     platform: str = Query(""),
 ):
     conn = get_db()
-    trends = get_trends(conn, limit=limit, platform=platform)
+    query = "SELECT id, keyword, platform, description, why_trending, how_to_apply, post_idea, source_url, fetched_at FROM trends"
+    params: list = []
+    if platform:
+        query += " WHERE platform = ?"
+        params.append(platform)
+    query += " ORDER BY fetched_at DESC LIMIT ?"
+    params.append(min(limit, 100))
+    rows = conn.execute(query, params).fetchall()
+    cols = ["id", "keyword", "platform", "description", "why_trending", "how_to_apply", "post_idea", "source_url", "fetched_at"]
+    trends = [dict(zip(cols, r)) for r in rows]
     return {"trends": trends, "total": len(trends)}
 
 
@@ -87,22 +96,43 @@ COMO_PROMOVERLO: [formatos y plataformas recomendados, máx 2 líneas]"""
 @router.post("/trends/search")
 def search_trends_manual(body: dict):
     """
-    Body: { keywords: list[str], limit: int }
-    Runs a mini trends cycle for the given keywords.
+    Body: { keywords: list[str], limit: int, platform: str }
+    Analyzes keywords with GPT for the given platform and stores them.
     """
     keywords = body.get("keywords", [])
     limit = min(int(body.get("limit", 5)), 20)
+    platform = body.get("platform", "Google Trends")
     if not keywords:
         return {"error": "Se requieren palabras clave"}
     config = load_config()
-    config_override = dict(config)
-    config_override["google_news_keywords"] = keywords
-    config_override["max_trends_google"] = limit
-    config_override["max_trends_youtube"] = 0
-    client = _get_openai_client(config_override)
-    try:
-        new_count = run_trends_cycle(get_db(), config_override, client)
-        return {"status": "ok", "new_trends": new_count}
-    except Exception as e:
-        logger.warning(f"manual trend search failed: {e}")
-        return {"error": str(e)}
+    client = _get_openai_client(config)
+    if not client:
+        return {"error": "OpenAI no configurada"}
+    brand_context = config.get("brand_context", "")
+    url_map_templates = {
+        "Google Trends": "https://trends.google.com/trends/explore?q={kw}&geo=CO",
+        "YouTube": "https://www.youtube.com/results?search_query={kw}",
+        "TikTok": "https://www.tiktok.com/search?q={kw}",
+        "LinkedIn": "https://www.linkedin.com/search/results/content/?keywords={kw}",
+    }
+    new_count = 0
+    conn = get_db()
+    from datetime import datetime as _dt
+    for kw in keywords[:limit]:
+        safe_kw = kw.replace(" ", "%20")
+        template = url_map_templates.get(platform, "")
+        source_url = template.replace("{kw}", safe_kw) if template else ""
+        trend_data = {
+            "keyword": kw,
+            "platform": platform,
+            "source_url": source_url,
+            "fetched_at": _dt.now().isoformat(),
+        }
+        ai = _analyze_keyword_with_gpt(kw, platform, client, brand_context)
+        trend_data.update(ai)
+        try:
+            if store_trend(conn, trend_data):
+                new_count += 1
+        except Exception as e:
+            logger.warning(f"manual search store failed: {e}")
+    return {"status": "ok", "new_trends": new_count}

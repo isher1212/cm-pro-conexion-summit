@@ -60,10 +60,14 @@ def fetch_youtube_trending(max_items: int = 5) -> list[dict]:
         feed = feedparser.parse(url)
         results = []
         for entry in feed.entries[:max_items]:
+            video_link = entry.get("link", "")
+            # Extract video id for a canonical watch URL if possible
+            video_id = entry.get("yt_videoid", "")
+            source_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else video_link
             results.append({
                 "keyword": entry.get("title", "").strip(),
                 "platform": "YouTube",
-                "url": entry.get("link", ""),
+                "source_url": source_url,
                 "author": entry.get("author", ""),
             })
         if not results:
@@ -169,8 +173,9 @@ def store_trend(conn: sqlite3.Connection, trend: dict) -> bool:
     """Store a trend. Returns True if inserted, False if duplicate (same keyword+platform+day)."""
     try:
         cursor = conn.execute(
-            """INSERT OR IGNORE INTO trends (keyword, platform, description, why_trending, how_to_apply, post_idea, fetched_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT OR IGNORE INTO trends
+               (keyword, platform, description, why_trending, how_to_apply, post_idea, source_url, fetched_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 trend["keyword"],
                 trend["platform"],
@@ -178,6 +183,7 @@ def store_trend(conn: sqlite3.Connection, trend: dict) -> bool:
                 trend.get("why_trending", ""),
                 trend.get("how_to_apply", ""),
                 trend.get("post_idea", ""),
+                trend.get("source_url", ""),
                 trend.get("fetched_at", datetime.now().isoformat()),
             ),
         )
@@ -201,6 +207,49 @@ def get_trends(conn: sqlite3.Connection, limit: int = 20, platform: str = "") ->
     return [dict(row) for row in cursor.fetchall()]
 
 
+# ── Keyword GPT Helper ────────────────────────────────────────────────────────
+
+def _analyze_keyword_with_gpt(keyword: str, platform: str, client: Any, brand_context: str = "") -> dict:
+    """Generates description, why_trending, how_to_apply, post_idea using GPT."""
+    if not client:
+        return {"description": "", "why_trending": "", "how_to_apply": "", "post_idea": ""}
+    context_line = f"\nContexto de marca: {brand_context}" if brand_context else ""
+    prompt = f"""Eres analista de tendencias para Conexión Summit (plataforma de emprendimiento LATAM).{context_line}
+
+Tendencia/keyword: {keyword}
+Plataforma: {platform}
+
+Responde EXACTAMENTE en este formato (en español, conciso):
+
+DESCRIPCION: [qué es esta tendencia o tema en {platform}, máx 2 líneas]
+POR_QUE: [por qué es relevante o está creciendo en {platform}, máx 1 línea]
+COMO_APLICARLO: [cómo Conexión Summit puede aprovecharla, máx 2 líneas]
+IDEA_POST: [idea concreta de post para esta tendencia, máx 1 línea]"""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+            temperature=0.5,
+        )
+        text = response.choices[0].message.content or ""
+        result = {"description": "", "why_trending": "", "how_to_apply": "", "post_idea": ""}
+        for line in text.split("\n"):
+            line = line.strip()
+            if line.startswith("DESCRIPCION:"):
+                result["description"] = line.replace("DESCRIPCION:", "").strip()
+            elif line.startswith("POR_QUE:"):
+                result["why_trending"] = line.replace("POR_QUE:", "").strip()
+            elif line.startswith("COMO_APLICARLO:"):
+                result["how_to_apply"] = line.replace("COMO_APLICARLO:", "").strip()
+            elif line.startswith("IDEA_POST:"):
+                result["post_idea"] = line.replace("IDEA_POST:", "").strip()
+        return result
+    except Exception as e:
+        logger.warning(f"_analyze_keyword_with_gpt failed for {keyword}: {e}")
+        return {"description": "", "why_trending": "", "how_to_apply": "", "post_idea": ""}
+
+
 # ── Main Cycle ────────────────────────────────────────────────────────────────
 
 def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any | None = None) -> int:
@@ -220,6 +269,8 @@ def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any 
     # Google Trends
     google_items = fetch_google_trends(keywords, geo="CO")[:max_google]
     for item in google_items:
+        kw_url_encoded = item["keyword"].replace(" ", "%20")
+        item["source_url"] = f"https://trends.google.com/trends/explore?q={kw_url_encoded}&geo=CO"
         if openai_client:
             analysis = analyze_trend(item["keyword"], item["platform"], openai_client, brand_context)
             item.update(analysis)
@@ -235,6 +286,38 @@ def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any 
             item.update(analysis)
         item["fetched_at"] = datetime.now().isoformat()
         if store_trend(conn, item):
+            stored_count += 1
+
+    # TikTok keywords trends (analyzed by GPT, no real TikTok scraping)
+    tiktok_kw = config.get("trend_keywords_tiktok", [])
+    max_tiktok = config.get("max_trends_tiktok", 3)
+    for kw in tiktok_kw[:max_tiktok]:
+        safe_kw = kw.replace(" ", "%20")
+        trend_data = {
+            "keyword": kw,
+            "platform": "TikTok",
+            "source_url": f"https://www.tiktok.com/search?q={safe_kw}",
+            "fetched_at": datetime.now().isoformat(),
+        }
+        ai_fields = _analyze_keyword_with_gpt(kw, "TikTok", openai_client, brand_context)
+        trend_data.update(ai_fields)
+        if store_trend(conn, trend_data):
+            stored_count += 1
+
+    # LinkedIn keywords trends
+    linkedin_kw = config.get("trend_keywords_linkedin", [])
+    max_linkedin = config.get("max_trends_linkedin", 3)
+    for kw in linkedin_kw[:max_linkedin]:
+        safe_kw = kw.replace(" ", "%20")
+        trend_data = {
+            "keyword": kw,
+            "platform": "LinkedIn",
+            "source_url": f"https://www.linkedin.com/search/results/content/?keywords={safe_kw}",
+            "fetched_at": datetime.now().isoformat(),
+        }
+        ai_fields = _analyze_keyword_with_gpt(kw, "LinkedIn", openai_client, brand_context)
+        trend_data.update(ai_fields)
+        if store_trend(conn, trend_data):
             stored_count += 1
 
     return stored_count
