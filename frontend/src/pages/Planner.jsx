@@ -50,6 +50,7 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
   const [imgSpecs, setImgSpecs] = useState('')
   const [imgCount, setImgCount] = useState(2)
   const [imgGenerating, setImgGenerating] = useState(false)
+  const [imgError, setImgError] = useState('')
   const [imgUrls, setImgUrls] = useState(() => {
     try { return JSON.parse(proposal.image_urls || '[]') } catch { return [] }
   })
@@ -58,6 +59,7 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
 
   async function handleGenerateImages() {
     setImgGenerating(true)
+    setImgError('')
     try {
       const res = await fetch('/api/images/generate', {
         method: 'POST',
@@ -68,14 +70,24 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
           platform: proposal.platform,
           caption_draft: proposal.caption_draft,
           extra_specs: imgSpecs,
-          n: isCarousel ? imgCount : 1,
+          n: isCarousel ? Math.max(2, Math.min(10, imgCount)) : 1,
         }),
       })
+      if (!res.ok) {
+        setImgError('Error al generar imagen. Verifique la API key de Kie AI.')
+        return
+      }
       const data = await res.json()
-      if (data.urls?.length) setImgUrls(data.urls)
+      if (data.error) {
+        setImgError(data.error)
+      } else if (Array.isArray(data.urls) && data.urls.length) {
+        setImgUrls(data.urls)
+        setImgPanel(false)
+      }
+    } catch {
+      setImgError('Error de conexión al generar imagen.')
     } finally {
       setImgGenerating(false)
-      setImgPanel(false)
     }
   }
 
@@ -188,8 +200,8 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
           <div className="mt-3 pt-3 border-t border-gray-50">
             {imgUrls.length > 0 && (
               <div className="flex gap-2 flex-wrap mb-2">
-                {imgUrls.map((url, i) => (
-                  <div key={i} className="relative group">
+                {imgUrls.map((url) => (
+                  <div key={url} className="relative group">
                     <img src={url} alt="" className="w-20 h-20 object-cover rounded-lg border border-gray-100" />
                     <a href={url} target="_blank" rel="noreferrer"
                       className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-lg transition-colors" />
@@ -223,6 +235,7 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
                   </button>
                   <button onClick={() => setImgPanel(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
                 </div>
+                {imgError && <p className="text-xs text-red-500">{imgError}</p>}
               </div>
             ) : (
               <button onClick={() => setImgPanel(true)}
