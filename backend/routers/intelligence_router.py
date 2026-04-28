@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from fastapi import APIRouter, Query
 from backend.database import get_db
@@ -45,11 +46,9 @@ def article_to_proposal(body: dict):
     Returns: { status: "ok" } or { error: str }
     """
     config = load_config()
-    key = config.get("openai_api_key", "")
-    if not key:
+    client = _get_openai_client(config)
+    if not client:
         return {"error": "OpenAI API key not configured"}
-    from openai import OpenAI
-    client = OpenAI(api_key=key)
 
     proposal = generate_proposal_from_article(
         title=body.get("title", ""),
@@ -64,6 +63,6 @@ def article_to_proposal(body: dict):
     proposal["status"] = "proposed"
     proposal["created_at"] = datetime.now().isoformat()
     proposal["image_urls"] = "[]"
-    proposal["video_script"] = ""
+    proposal["video_script"] = json.dumps({})
     store_proposal(get_db(), proposal)
     return {"status": "ok"}

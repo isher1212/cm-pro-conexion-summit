@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter
 from backend.database import get_db
 from backend.config import load_config
@@ -40,7 +40,10 @@ def generate_proposal_images(body: dict):
     if not kie["api_key"]:
         return {"error": "Kie AI API key not configured", "urls": []}
 
-    n = max(1, min(10, int(body.get("n", 1))))
+    try:
+        n = max(1, min(10, int(body.get("n", 1) or 1)))
+    except (ValueError, TypeError):
+        n = 1
     urls = generate_images(
         topic=body.get("topic", ""),
         platform=body.get("platform", "Instagram"),
@@ -54,6 +57,11 @@ def generate_proposal_images(body: dict):
     )
 
     proposal_id = body.get("proposal_id")
+    if proposal_id is not None:
+        try:
+            proposal_id = int(proposal_id)
+        except (ValueError, TypeError):
+            proposal_id = None
     if proposal_id and urls:
         update_proposal(get_db(), proposal_id, {"image_urls": json.dumps(urls)})
 
@@ -81,6 +89,11 @@ def generate_proposal_script(body: dict):
     )
 
     proposal_id = body.get("proposal_id")
+    if proposal_id is not None:
+        try:
+            proposal_id = int(proposal_id)
+        except (ValueError, TypeError):
+            proposal_id = None
     if proposal_id:
         update_proposal(get_db(), proposal_id, {"video_script": json.dumps(script)})
 
@@ -139,8 +152,7 @@ def replicate_trend(body: dict):
         )
         result["urls"] = urls
 
-    if body.get("send_to_parrilla") and client:
-        from datetime import timedelta
+    if body.get("send_to_parrilla"):
         suggested_date = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d")
         proposal = {
             "topic": keyword,
