@@ -181,7 +181,7 @@ function EventsSection({ events, onAdd, onDelete }) {
           <div className="col-span-2">
             <label className="text-xs text-gray-500 mb-1 block">Título del evento</label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="Demo con Endeavor" />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="Ej: Lanzamiento de producto" />
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Fecha</label>
