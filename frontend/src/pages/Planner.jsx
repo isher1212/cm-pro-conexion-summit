@@ -293,19 +293,26 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
                 {imgError && <p className="text-xs text-red-500">{imgError}</p>}
               </div>
             ) : (
-              <>
-                <button onClick={() => setImgPanel(true)}
-                  className="text-xs text-violet-600 hover:text-violet-800 font-medium">
-                  {imgUrls.length ? '🔄 Regenerar imagen' : '🖼 Generar imagen'}
-                </button>
+              <div className="flex gap-2 items-center flex-wrap">
+                {imgUrls.length === 0 ? (
+                  <button onClick={() => setImgPanel(true)}
+                    className="flex-1 min-w-[200px] bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600 text-white text-xs font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-all">
+                    ✨ Generar contenido con IA
+                  </button>
+                ) : (
+                  <button onClick={() => setImgPanel(true)}
+                    className="text-xs text-violet-600 hover:text-violet-800 font-medium">
+                    🔄 Regenerar imagen
+                  </button>
+                )}
                 {isVideo && (
                   <button onClick={handleGenerateScript} disabled={scriptGenerating}
-                    className="ml-3 text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50">
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50">
                     {scriptGenerating ? '⏳ Generando guión...' : '🎬 Generar guión'}
                   </button>
                 )}
-                {scriptError && <p className="text-xs text-red-500 mt-1">{scriptError}</p>}
-              </>
+                {scriptError && <p className="text-xs text-red-500 mt-1 w-full">{scriptError}</p>}
+              </div>
             )}
           </div>
 
