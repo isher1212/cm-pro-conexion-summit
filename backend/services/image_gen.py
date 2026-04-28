@@ -127,13 +127,28 @@ def generate_images(
     """Generate n images via Kie AI. Pass image_input_urls for image-to-image mode."""
     aspect_ratio = get_aspect_ratio(platform)
     all_urls: list[str] = []
+    prompt = build_image_prompt(topic, platform, caption, brand_context, extra_specs)
     for _ in range(n):
-        prompt = build_image_prompt(topic, platform, caption, brand_context, extra_specs)
         task_id = _create_task(prompt, model, resolution, aspect_ratio, api_key, image_input_urls)
         if not task_id:
             continue
         data = _poll_task(task_id, api_key)
-        all_urls.extend(parse_task_works(data))
+        urls = parse_task_works(data)
+        all_urls.extend(urls)
+        # Phase 12: registrar en image_library
+        if urls:
+            try:
+                from backend.database import get_db
+                conn = get_db()
+                for url in urls:
+                    conn.execute(
+                        """INSERT INTO image_library (url, prompt, platform, aspect_ratio, model, resolution, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (url, prompt, platform, aspect_ratio, model, resolution, datetime.now().isoformat()),
+                    )
+                conn.commit()
+            except Exception as e:
+                logger.warning(f"image_library insert failed: {e}")
     return all_urls
 
 
