@@ -152,6 +152,61 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         conn.commit()
     except Exception:
         pass
+    # Phase 12 migrations
+    try:
+        conn.execute("ALTER TABLE content_proposals ADD COLUMN order_index INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE content_proposals ADD COLUMN content_hash TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE articles ADD COLUMN content_hash TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE trends ADD COLUMN content_hash TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS image_library (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT NOT NULL,
+                prompt TEXT,
+                platform TEXT,
+                aspect_ratio TEXT,
+                model TEXT,
+                resolution TEXT,
+                proposal_id INTEGER,
+                tags TEXT DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ai_usage_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                service TEXT NOT NULL,
+                model TEXT,
+                tokens_in INTEGER DEFAULT 0,
+                tokens_out INTEGER DEFAULT 0,
+                cost_usd REAL DEFAULT 0,
+                context TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 _conn: sqlite3.Connection | None = None

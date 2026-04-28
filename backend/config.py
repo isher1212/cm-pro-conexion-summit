@@ -41,6 +41,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "trend_keywords_linkedin": ["liderazgo empresarial", "tendencias laborales"],
     "max_trends_tiktok": 3,
     "max_trends_linkedin": 3,
+    "count_weekly_top_articles": 5,
+    "monthly_report_day": 1,
+    "monthly_report_hour": 9,
+    "duplicate_window_days": 7,
     "rss_sources": [
         {"name": "iNNpulsa Colombia", "url": "https://innpulsacolombia.com/feed", "active": True, "category": "Colombia"},
         {"name": "Endeavor Colombia", "url": "https://endeavor.org.co/feed", "active": True, "category": "Colombia"},
