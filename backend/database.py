@@ -308,6 +308,137 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         conn.commit()
     except Exception:
         pass
+    # Phase 15 migrations — Summit hub
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS event_editions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                year INTEGER NOT NULL UNIQUE,
+                theme TEXT,
+                date_start TEXT,
+                date_end TEXT,
+                location TEXT,
+                description TEXT,
+                summary_post_event TEXT,
+                attendees_count INTEGER DEFAULT 0,
+                satisfaction_score REAL DEFAULT 0,
+                notes TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS speakers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                edition_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                bio TEXT,
+                photo_url TEXT,
+                role TEXT,
+                company TEXT,
+                talk_title TEXT,
+                instagram TEXT,
+                linkedin TEXT,
+                twitter TEXT,
+                website TEXT,
+                notes TEXT,
+                confirmed INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sponsors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                edition_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                tier TEXT DEFAULT 'partner',
+                logo_url TEXT,
+                contact_name TEXT,
+                contact_email TEXT,
+                agreement_value REAL DEFAULT 0,
+                deliverables TEXT,
+                notes TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS key_people (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                edition_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                role TEXT,
+                bio TEXT,
+                photo_url TEXT,
+                contact TEXT,
+                notes TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS summit_milestones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                edition_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                phase TEXT DEFAULT 'pre',
+                date TEXT,
+                description TEXT,
+                completed INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS event_goals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                edition_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                target_value REAL DEFAULT 0,
+                current_value REAL DEFAULT 0,
+                unit TEXT,
+                deadline TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS post_comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                post_id INTEGER NOT NULL,
+                external_id TEXT,
+                author TEXT,
+                content TEXT,
+                created_at TEXT
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE posts ADD COLUMN external_id TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 _conn: sqlite3.Connection | None = None

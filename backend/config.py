@@ -51,6 +51,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "notify_on_new_trend": True,
     "additional_sources": [],
     "sentiment_history_limit": 50,
+    "current_edition_year": 2026,
     "rss_sources": [
         {"name": "iNNpulsa Colombia", "url": "https://innpulsacolombia.com/feed", "active": True, "category": "Colombia"},
         {"name": "Endeavor Colombia", "url": "https://endeavor.org.co/feed", "active": True, "category": "Colombia"},
