@@ -45,6 +45,8 @@ hiddenimports = [
     "backend.routers.library_router",
     "backend.routers.ai_usage_router",
     "backend.routers.notifications_router",
+    "backend.routers.auto_publish_router",
+    "backend.services.auto_publish",
     "backend.services.notifications",
     "backend.services.ai_usage",
     "backend.services.image_gen",

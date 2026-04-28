@@ -122,7 +122,7 @@ def update_proposal_status(conn: sqlite3.Connection, proposal_id: int, status: s
 
 
 def update_proposal(conn: sqlite3.Connection, proposal_id: int, updates: dict) -> None:
-    allowed = {"caption_draft", "suggested_date", "hashtags", "format", "platform", "topic", "image_urls", "video_script"}
+    allowed = {"caption_draft", "suggested_date", "hashtags", "format", "platform", "topic", "image_urls", "video_script", "auto_publish", "status"}
     fields = {k: v for k, v in updates.items() if k in allowed}
     if not fields:
         return
