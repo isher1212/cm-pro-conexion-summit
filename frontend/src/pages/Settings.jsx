@@ -275,27 +275,73 @@ export default function Settings() {
         {/* Límites de contenido */}
         <section>
           <h2 className="text-base font-semibold text-gray-700 mb-4 pb-2 border-b">Límites de contenido</h2>
-          <div className="grid grid-cols-2 gap-4">
+
+          <p className="text-xs text-gray-500 mb-3 font-medium">Inteligencia (artículos por categoría)</p>
+          <div className="grid grid-cols-3 gap-4 mb-6">
             {[
-              { key: 'max_articles_per_feed', label: 'Artículos por fuente RSS', min: 1, max: 50 },
-              { key: 'max_articles_age_days', label: 'Antigüedad máx. de artículos (días)', min: 1, max: 365 },
-              { key: 'max_trends_google', label: 'Tendencias Google a buscar', min: 1, max: 20 },
-              { key: 'max_trends_youtube', label: 'Tendencias YouTube a buscar', min: 1, max: 20 },
-            ].map(({ key, label, min, max }) => (
+              { key: 'count_articles_colombia', label: 'Colombia', def: 5 },
+              { key: 'count_articles_latam', label: 'LATAM', def: 5 },
+              { key: 'count_articles_global', label: 'Global', def: 5 },
+            ].map(({ key, label, def }) => (
               <div key={key}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                <input
-                  type="number"
-                  min={min}
-                  max={max}
-                  value={cfg[key] ?? (key.includes('age') ? 30 : key.includes('articles') ? 10 : 5)}
+                <input type="number" min={0} max={50}
+                  value={cfg[key] ?? def}
                   onChange={e => updateField(key, parseInt(e.target.value))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
               </div>
             ))}
           </div>
-          <p className="text-xs text-gray-400 mt-2">Los límites de antigüedad filtran artículos viejos en Inteligencia. Los conteos controlan cuántas tendencias se buscan en cada actualización.</p>
+
+          <p className="text-xs text-gray-500 mb-3 font-medium">Inteligencia (general)</p>
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            {[
+              { key: 'max_articles_per_feed', label: 'Artículos máx. por fuente RSS', def: 10, min: 1, max: 50 },
+              { key: 'max_articles_age_days', label: 'Antigüedad máx. (días)', def: 30, min: 1, max: 365 },
+            ].map(({ key, label, def, min, max }) => (
+              <div key={key}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                <input type="number" min={min} max={max}
+                  value={cfg[key] ?? def}
+                  onChange={e => updateField(key, parseInt(e.target.value))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs text-gray-500 mb-3 font-medium">Tendencias por plataforma</p>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            {[
+              { key: 'max_trends_google', label: 'Google Trends', def: 5 },
+              { key: 'max_trends_youtube', label: 'YouTube', def: 5 },
+              { key: 'max_trends_tiktok', label: 'TikTok', def: 3 },
+              { key: 'max_trends_linkedin', label: 'LinkedIn', def: 3 },
+            ].map(({ key, label, def }) => (
+              <div key={key}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                <input type="number" min={0} max={20}
+                  value={cfg[key] ?? def}
+                  onChange={e => updateField(key, parseInt(e.target.value))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 mb-2">
+            {[
+              { key: 'trend_keywords_tiktok', label: 'Keywords TikTok (separadas por coma)', placeholder: 'tiktok viral, trending tiktok, ...' },
+              { key: 'trend_keywords_linkedin', label: 'Keywords LinkedIn (separadas por coma)', placeholder: 'liderazgo empresarial, tendencias laborales, ...' },
+            ].map(({ key, label, placeholder }) => (
+              <div key={key}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                <input type="text" placeholder={placeholder}
+                  value={Array.isArray(cfg[key]) ? cfg[key].join(', ') : (cfg[key] || '')}
+                  onChange={e => updateField(key, e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">TikTok y LinkedIn no tienen API pública; las tendencias se generan analizando estas keywords con IA.</p>
         </section>
 
         <button
