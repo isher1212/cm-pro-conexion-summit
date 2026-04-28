@@ -272,6 +272,32 @@ export default function Settings() {
           </div>
         </section>
 
+        {/* Límites de contenido */}
+        <section>
+          <h2 className="text-base font-semibold text-gray-700 mb-4 pb-2 border-b">Límites de contenido</h2>
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              { key: 'max_articles_per_feed', label: 'Artículos por fuente RSS', min: 1, max: 50 },
+              { key: 'max_articles_age_days', label: 'Antigüedad máx. de artículos (días)', min: 1, max: 365 },
+              { key: 'max_trends_google', label: 'Tendencias Google a buscar', min: 1, max: 20 },
+              { key: 'max_trends_youtube', label: 'Tendencias YouTube a buscar', min: 1, max: 20 },
+            ].map(({ key, label, min, max }) => (
+              <div key={key}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                <input
+                  type="number"
+                  min={min}
+                  max={max}
+                  value={cfg[key] ?? (key.includes('age') ? 30 : key.includes('articles') ? 10 : 5)}
+                  onChange={e => updateField(key, parseInt(e.target.value))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">Los límites de antigüedad filtran artículos viejos en Inteligencia. Los conteos controlan cuántas tendencias se buscan en cada actualización.</p>
+        </section>
+
         <button
           type="submit"
           disabled={saving}
