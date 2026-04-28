@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, TrendingUp, Newspaper, Flame, Bookmark, Calendar, Mail, Settings, Images } from 'lucide-react'
+import NotificationsBell from './NotificationsBell'
 
 const links = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
@@ -16,9 +17,12 @@ const links = [
 export default function Sidebar() {
   return (
     <aside className="w-56 min-h-screen bg-white border-r border-gray-100 flex flex-col py-6 px-3 fixed top-0 left-0">
-      <div className="px-3 mb-8">
-        <span className="text-indigo-600 font-bold text-lg tracking-tight">CM Pro</span>
-        <p className="text-xs text-gray-400 mt-0.5">Conexión Summit</p>
+      <div className="flex items-center justify-between px-3 mb-8">
+        <div>
+          <span className="text-indigo-600 font-bold text-lg tracking-tight">CM Pro</span>
+          <p className="text-xs text-gray-400 mt-0.5">Conexión Summit</p>
+        </div>
+        <NotificationsBell />
       </div>
       <nav className="flex flex-col gap-1">
         {links.map(({ to, icon: Icon, label }) => (
