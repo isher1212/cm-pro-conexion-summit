@@ -344,6 +344,28 @@ export default function Settings() {
           <p className="text-xs text-gray-400 mt-2">TikTok y LinkedIn no tienen API pública; las tendencias se generan analizando estas keywords con IA.</p>
         </section>
 
+        {/* Uso y costos de IA */}
+        <section>
+          <h2 className="text-base font-semibold text-gray-700 mb-4 pb-2 border-b">Uso y costos de IA</h2>
+          <AIUsagePanel />
+        </section>
+
+        {/* Reportes manuales */}
+        <section>
+          <h2 className="text-base font-semibold text-gray-700 mb-4 pb-2 border-b">Reportes</h2>
+          <p className="text-xs text-gray-500 mb-3">Los reportes se envían automáticamente según los horarios configurados, pero puedes enviarlos manualmente:</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { endpoint: '/api/reports/send-monthly', label: '📊 Reporte mensual (Excel)' },
+              { endpoint: '/api/reports/send-weekly-intelligence', label: '🔍 Top artículos semanales' },
+              { endpoint: '/api/reports/send-daily-email', label: '📧 Email diario' },
+              { endpoint: '/api/reports/send-weekly-email', label: '📧 Email semanal' },
+            ].map(({ endpoint, label }) => (
+              <ManualReportButton key={endpoint} endpoint={endpoint} label={label} />
+            ))}
+          </div>
+        </section>
+
         <button
           type="submit"
           disabled={saving}
@@ -353,5 +375,51 @@ export default function Settings() {
         </button>
       </form>
     </div>
+  )
+}
+
+function AIUsagePanel() {
+  const [summary, setSummary] = useState([])
+  useEffect(() => {
+    fetch('/api/ai-usage/summary?days=30').then(r => r.json()).then(setSummary).catch(() => setSummary([]))
+  }, [])
+  const total = summary.reduce((s, r) => s + (r.total_cost_usd || 0), 0)
+  return (
+    <div>
+      <p className="text-sm text-gray-700 mb-3">Costo total últimos 30 días: <span className="font-bold text-indigo-600">${total.toFixed(2)} USD</span></p>
+      <div className="space-y-2">
+        {summary.map((r, i) => (
+          <div key={i} className="flex justify-between text-xs bg-gray-50 rounded px-3 py-2">
+            <span>{r.service} · {r.model}</span>
+            <span>{r.calls} llamadas · ${(r.total_cost_usd || 0).toFixed(3)}</span>
+          </div>
+        ))}
+        {summary.length === 0 && <p className="text-xs text-gray-400">Aún no hay datos de uso.</p>}
+      </div>
+    </div>
+  )
+}
+
+function ManualReportButton({ endpoint, label }) {
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState('')
+  async function handle() {
+    setSending(true); setResult('')
+    try {
+      const r = await fetch(endpoint, { method: 'POST' })
+      const data = await r.json()
+      if (data.status === 'ok') setResult('✓ Enviado')
+      else setResult(data.error || data.reason || '✗ Error')
+    } catch { setResult('✗ Error de conexión') }
+    finally {
+      setSending(false)
+      setTimeout(() => setResult(''), 5000)
+    }
+  }
+  return (
+    <button type="button" onClick={handle} disabled={sending}
+      className="border border-gray-200 hover:bg-gray-50 text-sm px-3 py-2 rounded-lg disabled:opacity-50 text-left">
+      {sending ? '⏳ Enviando...' : (result || label)}
+    </button>
   )
 }
