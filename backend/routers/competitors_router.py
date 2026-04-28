@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from backend.config import load_config
 from backend.services.competitors import (
     list_competitors, create_competitor, update_competitor, delete_competitor,
-    list_posts, add_post, analyze_competitor_with_gpt,
+    list_posts, add_post, analyze_competitor_with_gpt, suggest_with_gpt,
 )
 
 router = APIRouter()
@@ -62,3 +62,17 @@ def analyze_competitor(competitor_id: int):
     if not client:
         return {"error": "OpenAI API key no configurada"}
     return analyze_competitor_with_gpt(competitor_id, client, config.get("brand_context", ""))
+
+
+@router.post("/competitors/suggest")
+def suggest_competitors(body: dict):
+    config = load_config()
+    client = _openai_client(config)
+    if not client:
+        return {"error": "OpenAI API key no configurada"}
+    return suggest_with_gpt(
+        scope=body.get("scope", "national"),
+        category=body.get("category", ""),
+        openai_client=client,
+        brand_context=config.get("brand_context", ""),
+    )

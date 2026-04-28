@@ -147,3 +147,44 @@ RIESGOS: [qué evitar copiar, máx 1 línea]"""
     except Exception as e:
         logger.warning(f"competitor analyze failed: {e}")
         return {"error": "No se pudo generar análisis"}
+
+
+def suggest_with_gpt(scope: str, category: str, openai_client, brand_context: str = "") -> dict:
+    """Sugiere referentes (nacionales o internacionales) basado en categoría."""
+    if not openai_client:
+        return {"error": "OpenAI no configurada"}
+    context_line = f"\nContexto de marca: {brand_context}" if brand_context else ""
+    scope_label = "nacionales (Colombia)" if scope == "national" else "internacionales"
+    cat_line = f"\nCategoría/nicho: {category}" if category else ""
+    prompt = f"""Eres analista de marca para Conexión Summit (plataforma de emprendimiento LATAM).{context_line}
+
+Sugiere 5-8 referentes {scope_label} que valga la pena monitorear.{cat_line}
+
+Devuelve EXACTAMENTE este formato JSON (sin texto adicional):
+
+{{
+  "suggestions": [
+    {{"name": "<nombre>", "category": "<categoría>", "instagram_handle": "<handle sin @>", "linkedin_handle": "<handle>", "website": "<url o vacío>", "why": "<por qué seguir, 1 línea>"}}
+  ]
+}}"""
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=800, temperature=0.5,
+        )
+        try:
+            from backend.services.ai_usage import log_openai_usage
+            log_openai_usage("gpt-4o-mini", response, context="referentes/suggest")
+        except Exception:
+            pass
+        import json
+        text = response.choices[0].message.content or ""
+        start = text.find("{"); end = text.rfind("}")
+        if start < 0 or end < 0:
+            return {"error": "No se pudo parsear sugerencias"}
+        data = json.loads(text[start:end + 1])
+        return data
+    except Exception as e:
+        logger.warning(f"suggest_with_gpt failed: {e}")
+        return {"error": str(e)}

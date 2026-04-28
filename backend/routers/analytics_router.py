@@ -240,3 +240,15 @@ def analyze_sentiment_endpoint(body: dict):
 def sentiment_history(limit: int = 30):
     from backend.services.sentiment import list_sentiment_history
     return list_sentiment_history(limit)
+
+
+@router.post("/analytics/sentiment-post/{post_id}")
+def sentiment_for_post(post_id: int):
+    from backend.services.sentiment import analyze_post_sentiment_auto
+    config = load_config()
+    key = config.get("openai_api_key", "")
+    if not key:
+        return {"error": "OpenAI API key no configurada"}
+    from openai import OpenAI
+    client = OpenAI(api_key=key)
+    return analyze_post_sentiment_auto(post_id, client, config)
