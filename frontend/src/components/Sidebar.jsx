@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, TrendingUp, Newspaper, Flame, Bookmark, Calendar, Mail, Settings, Images } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, Newspaper, Flame, Bookmark, Calendar, Mail, Settings, Images, Target } from 'lucide-react'
 import NotificationsBell from './NotificationsBell'
 
 const links = [
@@ -10,6 +10,7 @@ const links = [
   { to: '/saved', icon: Bookmark, label: 'Guardados' },
   { to: '/planner', icon: Calendar, label: 'Parrilla' },
   { to: '/library', icon: Images, label: 'Galería' },
+  { to: '/competitors', icon: Target, label: 'Competencia' },
   { to: '/reports', icon: Mail, label: 'Reportes' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
 ]
