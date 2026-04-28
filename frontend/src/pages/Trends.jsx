@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, TrendingUp, Video, Lightbulb, Zap, Hash, Briefcase, ExternalLink } from 'lucide-react'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 
 const PLATFORMS = ['Todas', 'Google Trends', 'YouTube', 'TikTok', 'LinkedIn']
 
@@ -299,6 +300,31 @@ function TrendCard({ trend }) {
   )
 }
 
+function HistoryChart({ data }) {
+  const byDate = {}
+  data.forEach(d => {
+    if (!byDate[d.date]) byDate[d.date] = { date: d.date }
+    byDate[d.date][d.platform] = (byDate[d.date][d.platform] || 0) + d.count
+  })
+  const series = Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date))
+  const platforms = ['Google Trends', 'YouTube', 'TikTok', 'LinkedIn']
+  const colors = { 'Google Trends': '#a855f7', 'YouTube': '#ef4444', 'TikTok': '#ec4899', 'LinkedIn': '#3b82f6' }
+  return (
+    <ResponsiveContainer>
+      <LineChart data={series}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+        <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+        <Tooltip />
+        <Legend />
+        {platforms.map(p => (
+          <Line key={p} type="monotone" dataKey={p} stroke={colors[p]} dot={false} strokeWidth={2} />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
 export default function Trends() {
   const [trends, setTrends] = useState([])
   const [total, setTotal] = useState(0)
@@ -310,6 +336,11 @@ export default function Trends() {
   const [searchCount, setSearchCount] = useState(5)
   const [searching, setSearching] = useState(false)
   const [searchPlatform, setSearchPlatform] = useState('Google Trends')
+  const [history, setHistory] = useState([])
+
+  useEffect(() => {
+    fetch('/api/trends/history?weeks=12').then(r => r.json()).then(d => setHistory(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [])
 
   const fetchTrends = useCallback(async () => {
     setLoading(true)
@@ -381,6 +412,15 @@ export default function Trends() {
           {refreshing ? 'Actualizando...' : 'Actualizar ahora'}
         </button>
       </div>
+
+      {history.length > 0 && (
+        <details className="mb-6 bg-white border border-gray-100 rounded-xl p-4">
+          <summary className="text-sm font-semibold text-gray-700 cursor-pointer">📈 Histórico de tendencias (últimas 12 semanas)</summary>
+          <div className="mt-4 h-64">
+            <HistoryChart data={history} />
+          </div>
+        </details>
+      )}
 
       {/* Platform filter */}
       <div className="flex gap-1 mb-6">

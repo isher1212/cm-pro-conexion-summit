@@ -290,6 +290,44 @@ function InstagramConnect() {
   )
 }
 
+// ── Heatmap ───────────────────────────────────────────────────────────────────
+function Heatmap({ data }) {
+  const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+  const max = Math.max(...data.map(c => c.avg_engagement || 0), 0.01)
+  const grid = days.map((_, di) => Array.from({ length: 24 }, (_, h) =>
+    data.find(c => c.day_index === di && c.hour === h) || { avg_engagement: 0, samples: 0 }
+  ))
+  return (
+    <div className="overflow-x-auto">
+      <table className="text-[10px]">
+        <thead>
+          <tr>
+            <th className="w-10"></th>
+            {Array.from({ length: 24 }).map((_, h) => <th key={h} className="text-center text-gray-400 px-0.5">{h}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {grid.map((row, di) => (
+            <tr key={di}>
+              <td className="text-gray-500 pr-2 text-right">{days[di]}</td>
+              {row.map((cell, h) => {
+                const intensity = max > 0 ? (cell.avg_engagement || 0) / max : 0
+                const opacity = cell.samples > 0 ? Math.max(0.1, intensity) : 0.05
+                return (
+                  <td key={h}
+                    title={`${days[di]} ${h}h — ${(cell.avg_engagement || 0).toFixed(2)}% (${cell.samples} posts)`}
+                    style={{ backgroundColor: `rgba(99, 102, 241, ${opacity})` }}
+                    className="w-5 h-5" />
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Analytics() {
   const [summary, setSummary] = useState([])
@@ -298,6 +336,13 @@ export default function Analytics() {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [activePlatform, setActivePlatform] = useState('Instagram')
+  const [compare, setCompare] = useState(null)
+  const [heatmap, setHeatmap] = useState([])
+
+  useEffect(() => {
+    fetch('/api/analytics/compare-months').then(r => r.json()).then(setCompare).catch(() => {})
+    fetch('/api/analytics/heatmap?days=90').then(r => r.json()).then(d => setHeatmap(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -387,6 +432,43 @@ export default function Analytics() {
           color="bg-blue-500"
         />
       </div>
+
+      {compare && (
+        <section className="bg-white border border-gray-100 rounded-xl p-5 mb-6">
+          <h2 className="text-base font-semibold text-gray-700 mb-4">Comparativa: {compare.current_month} vs {compare.previous_month}</h2>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[
+              { key: 'posts', label: 'Posts', deltaKey: null, current: compare.current.posts, prev: compare.previous.posts },
+              { key: 'avg_reach', label: 'Alcance prom.', deltaKey: 'avg_reach_pct', current: compare.current.avg_reach, prev: compare.previous.avg_reach },
+              { key: 'avg_engagement', label: 'Engagement %', deltaKey: 'avg_engagement_pct', current: compare.current.avg_engagement, prev: compare.previous.avg_engagement },
+              { key: 'total_likes', label: 'Likes totales', deltaKey: 'total_likes_pct', current: compare.current.total_likes, prev: compare.previous.total_likes },
+              { key: 'followers', label: 'Followers', deltaKey: 'followers_pct', current: compare.current.followers, prev: compare.previous.followers },
+            ].map(m => {
+              const d = m.deltaKey ? compare.deltas[m.deltaKey] : (m.current - m.prev)
+              const positive = d > 0
+              const negative = d < 0
+              return (
+                <div key={m.key} className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500">{m.label}</p>
+                  <p className="text-lg font-bold text-gray-800">{m.current}</p>
+                  <p className="text-xs text-gray-400">vs {m.prev}</p>
+                  <p className={`text-xs font-medium ${positive ? 'text-green-600' : negative ? 'text-red-500' : 'text-gray-400'}`}>
+                    {positive ? '↑' : negative ? '↓' : '–'} {Math.abs(d)}{m.deltaKey ? '%' : ''}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {heatmap.length > 0 && (
+        <section className="bg-white border border-gray-100 rounded-xl p-5 mb-6">
+          <h2 className="text-base font-semibold text-gray-700 mb-1">Heatmap de engagement (últimos 90 días)</h2>
+          <p className="text-xs text-gray-400 mb-4">Cuándo publicar para mejor desempeño — color más oscuro = mayor engagement promedio</p>
+          <Heatmap data={heatmap} />
+        </section>
+      )}
 
       {/* Charts */}
       {history.length > 0 && (
