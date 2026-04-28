@@ -18,6 +18,7 @@ import Brand from './pages/Brand'
 import Team from './pages/Team'
 import Integrations from './pages/Integrations'
 import ImageEditor from './pages/ImageEditor'
+import Cleanup from './pages/Cleanup'
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/team" element={<Team />} />
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/editor" element={<ImageEditor />} />
+          <Route path="/cleanup" element={<Cleanup />} />
         </Routes>
       </Layout>
     </BrowserRouter>
