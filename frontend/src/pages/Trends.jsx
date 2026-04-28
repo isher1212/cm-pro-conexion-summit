@@ -289,14 +289,21 @@ function TrendCard({ trend }) {
                     )}
                   </div>
                 )}
-                {!sent ? (
-                  <button onClick={handleSendToParrilla}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg">
-                    📅 Enviar a Parrilla
+                <div className="flex items-center gap-1 flex-wrap">
+                  {!sent ? (
+                    <button onClick={handleSendToParrilla}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg">
+                      📅 Enviar a Parrilla
+                    </button>
+                  ) : (
+                    <span className="text-xs text-green-600 font-medium">✓ Enviado a Parrilla</span>
+                  )}
+                  <button onClick={() => { setResult(null); setSent(false); handleReplicate() }}
+                    disabled={loading}
+                    className="ml-2 text-xs text-violet-600 hover:text-violet-800 font-medium disabled:opacity-50">
+                    🔄 Regenerar
                   </button>
-                ) : (
-                  <p className="text-xs text-green-600 font-medium">✓ Enviado a Parrilla</p>
-                )}
+                </div>
               </div>
             )}
           </div>

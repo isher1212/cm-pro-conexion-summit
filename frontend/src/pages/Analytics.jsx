@@ -475,6 +475,36 @@ export default function Analytics() {
         </section>
       )}
 
+      {/* Importar comentarios CSV */}
+      <section className="bg-white border border-gray-100 rounded-xl p-5 mb-6">
+        <h2 className="text-base font-semibold text-gray-700 mb-1">Importar comentarios de Instagram (CSV)</h2>
+        <p className="text-xs text-gray-400 mb-3">Si exportas tus comentarios manualmente, súbelos aquí para analizar el sentimiento.</p>
+        <CommentsImporter />
+        <details className="mt-3">
+          <summary className="text-xs text-indigo-600 hover:text-indigo-800 cursor-pointer">¿Cómo exportar comentarios desde Instagram?</summary>
+          <div className="mt-2 text-xs text-gray-600 space-y-2 bg-gray-50 rounded-lg p-3">
+            <p><b>Opción 1: Meta Business Suite</b></p>
+            <ol className="list-decimal pl-5 space-y-1">
+              <li>Ve a business.facebook.com → Insights → Contenido</li>
+              <li>Selecciona los posts y exporta como CSV</li>
+              <li>Asegúrate de incluir las columnas: post_id (o external_id), text (comentario), author, date</li>
+            </ol>
+            <p className="mt-2"><b>Opción 2: Herramientas de terceros</b></p>
+            <p>Apps como ExportComments.com, Phantombuster o Iconosquare permiten exportar comentarios. Asegúrate de respetar las políticas de Instagram.</p>
+            <p className="mt-2"><b>Formato esperado del CSV:</b></p>
+            <code className="block bg-white px-2 py-1 rounded text-xs">post_id,text,author,date<br/>123456,"Genial!",usuario1,2026-04-20<br/>123456,"Cuándo?",usuario2,2026-04-21</code>
+            <p className="text-xs text-gray-500 mt-2">El sistema acepta también cabeceras alternativas: comment, content, comentario, username, user, timestamp, fecha, media_id, ig_post_id.</p>
+          </div>
+        </details>
+      </section>
+
+      {/* Costos IA por sección */}
+      <section className="bg-white border border-gray-100 rounded-xl p-5 mb-6">
+        <h2 className="text-base font-semibold text-gray-700 mb-1">Gastos de IA por sección (30 días)</h2>
+        <p className="text-xs text-gray-400 mb-3">Dónde se concentra el costo. Útil para detectar qué optimizar.</p>
+        <AICostByContext />
+      </section>
+
       {/* Sentimiento automático */}
       <section className="bg-white border border-gray-100 rounded-xl p-5 mb-6">
         <h2 className="text-base font-semibold text-gray-700 mb-1">Sentimiento de comentarios</h2>
@@ -577,6 +607,67 @@ export default function Analytics() {
           <p className="text-gray-400 text-sm">Usa el formulario para ingresar las métricas de la semana</p>
         </div>
       )}
+    </div>
+  )
+}
+
+function CommentsImporter() {
+  const [file, setFile] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [result, setResult] = useState(null)
+
+  async function upload() {
+    if (!file) return
+    setUploading(true); setResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const r = await fetch('/api/analytics/import-comments-csv', { method: 'POST', body: fd })
+      setResult(await r.json())
+    } catch {
+      setResult({ error: 'Error de conexión' })
+    } finally { setUploading(false) }
+  }
+
+  return (
+    <div className="flex gap-2 items-center flex-wrap">
+      <input type="file" accept=".csv" onChange={e => setFile(e.target.files?.[0] || null)}
+        className="text-sm text-gray-600" />
+      <button onClick={upload} disabled={!file || uploading}
+        className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50">
+        {uploading ? '⏳ Subiendo...' : 'Importar'}
+      </button>
+      {result && !result.error && <span className="text-xs text-green-600">✓ {result.inserted} comentarios importados, {result.skipped} omitidos</span>}
+      {result?.error && <span className="text-xs text-red-500">{result.error}</span>}
+    </div>
+  )
+}
+
+function AICostByContext() {
+  const [data, setData] = useState([])
+  useEffect(() => {
+    fetch('/api/ai-usage/by-context?days=30').then(r => r.json()).then(d => setData(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [])
+  if (data.length === 0) return <p className="text-xs text-gray-400">Aún no hay datos.</p>
+  const total = data.reduce((s, r) => s + (r.total_cost_usd || 0), 0)
+  const max = Math.max(...data.map(r => r.total_cost_usd || 0), 0.0001)
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-gray-500">Total: <span className="font-bold text-indigo-600">${total.toFixed(2)} USD</span></p>
+      {data.map((r, i) => {
+        const pct = ((r.total_cost_usd || 0) / max) * 100
+        return (
+          <div key={i}>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-gray-700">{r.context}</span>
+              <span className="text-gray-500">${(r.total_cost_usd || 0).toFixed(3)} · {r.calls} llamadas</span>
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

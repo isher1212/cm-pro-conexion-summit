@@ -75,38 +75,6 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
     suggested_date: proposal.suggested_date,
   })
 
-  const [autoPublish, setAutoPublish] = useState(!!proposal.auto_publish)
-  const [publishing, setPublishing] = useState(false)
-  const [publishMsg, setPublishMsg] = useState('')
-
-  async function handleToggleAutoPublish(checked) {
-    setAutoPublish(checked)
-    try {
-      await fetch(`/api/planner/proposals/${proposal.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ auto_publish: checked ? 1 : 0 }),
-      })
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  async function handlePublishNow() {
-    setPublishing(true); setPublishMsg('')
-    try {
-      const r = await fetch(`/api/publish/proposal/${proposal.id}`, { method: 'POST' })
-      const data = await r.json()
-      if (data.status === 'ok') setPublishMsg('✓ Publicado')
-      else if (data.status === 'manual') setPublishMsg('Publica manualmente')
-      else setPublishMsg(data.error || 'Error')
-    } catch { setPublishMsg('Error de conexión') }
-    finally {
-      setPublishing(false)
-      setTimeout(() => setPublishMsg(''), 5000)
-    }
-  }
-
   async function handleGenerateScript() {
     setScriptGenerating(true)
     setScriptError('')
@@ -278,16 +246,6 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
                 className="text-xs text-gray-400 hover:text-gray-600 ml-auto"
               >
                 Editar
-              </button>
-              <label className="flex items-center gap-1 text-xs text-gray-500 ml-2 cursor-pointer">
-                <input type="checkbox" checked={autoPublish}
-                  onChange={e => handleToggleAutoPublish(e.target.checked)}
-                  className="accent-indigo-600 rounded" />
-                Auto-publicar
-              </label>
-              <button onClick={handlePublishNow} disabled={publishing}
-                className="text-xs text-violet-600 hover:text-violet-800 font-medium disabled:opacity-50 ml-1">
-                {publishing ? '⏳ Publicando...' : (publishMsg || '🚀 Publicar ahora')}
               </button>
             </div>
           )}
