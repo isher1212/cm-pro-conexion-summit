@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, TrendingUp, Video, Lightbulb, Zap, Hash, Briefcase, ExternalLink } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import DateRangeFilter from '../components/DateRangeFilter'
+import ViewToggle from '../components/ViewToggle'
+import HistoricalArchive from '../components/HistoricalArchive'
 
 const PLATFORMS = ['Todas', 'Google Trends', 'YouTube', 'TikTok', 'LinkedIn']
 
@@ -18,7 +21,7 @@ const platformColor = {
   'LinkedIn': 'bg-blue-50 text-blue-600',
 }
 
-function TrendCard({ trend }) {
+function TrendCard({ trend, fetchAll }) {
   const [panel, setPanel] = useState(false)
   const [mode, setMode] = useState('image') // 'image' | 'video_script'
   const [targetPlatform, setTargetPlatform] = useState('Instagram')
@@ -196,6 +199,21 @@ function TrendCard({ trend }) {
             🔖 Guardar tendencia
           </button>
         )}
+        {!trend.discarded ? (
+          <button onClick={async () => {
+            await fetch(`/api/trends/${trend.id}/discard`, { method: 'POST' })
+            if (fetchAll) fetchAll()
+          }} className="text-xs text-gray-400 hover:text-red-500">
+            🗑 Descartar
+          </button>
+        ) : (
+          <button onClick={async () => {
+            await fetch(`/api/trends/${trend.id}/restore`, { method: 'POST' })
+            if (fetchAll) fetchAll()
+          }} className="text-xs text-amber-600 hover:text-amber-800">
+            ↩ Restaurar
+          </button>
+        )}
       </div>
       {analyzeError && <p className="text-xs text-red-500 mb-2">{analyzeError}</p>}
       {analysis && (
@@ -350,6 +368,8 @@ export default function Trends() {
   const [searching, setSearching] = useState(false)
   const [searchPlatform, setSearchPlatform] = useState('Google Trends')
   const [history, setHistory] = useState([])
+  const [dateRange, setDateRange] = useState({ preset: 'default', from: '', to: '' })
+  const [view, setView] = useState('active')
 
   useEffect(() => {
     fetch('/api/trends/history?weeks=12').then(r => r.json()).then(d => setHistory(Array.isArray(d) ? d : [])).catch(() => {})
@@ -362,6 +382,9 @@ export default function Trends() {
       const params = new URLSearchParams()
       if (platform !== 'Todas') params.set('platform', platform)
       params.set('limit', '30')
+      params.set('view', view)
+      if (dateRange.from) params.set('from_date', dateRange.from)
+      if (dateRange.to) params.set('to_date', dateRange.to)
       const res = await fetch(`/api/trends?${params}`)
       if (!res.ok) throw new Error('Error al cargar tendencias')
       const data = await res.json()
@@ -372,7 +395,7 @@ export default function Trends() {
     } finally {
       setLoading(false)
     }
-  }, [platform])
+  }, [platform, view, dateRange])
 
   async function handleManualSearch() {
     if (!searchKeyword.trim()) return
@@ -453,6 +476,14 @@ export default function Trends() {
         ))}
       </div>
 
+      <div className="space-y-3 mb-4">
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        <ViewToggle value={view} onChange={setView} options={[
+          { val: 'active', label: 'Todos', icon: '📋' },
+          { val: 'discarded', label: 'Descartados', icon: '🗑' },
+        ]} />
+      </div>
+
       {/* Búsqueda manual de tendencias */}
       <div className="flex gap-2 items-center mb-6 flex-wrap">
         <select value={searchPlatform} onChange={e => setSearchPlatform(e.target.value)}
@@ -511,10 +542,17 @@ export default function Trends() {
       {!loading && trends.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2">
           {trends.map(trend => (
-            <TrendCard key={trend.id} trend={trend} />
+            <TrendCard key={trend.id} trend={trend} fetchAll={fetchTrends} />
           ))}
         </div>
       )}
+
+      <div className="mt-6">
+        <HistoricalArchive
+          endpoint="/api/trends/archive-by-month"
+          onSelectMonth={month => setDateRange({ preset: 'custom', from: `${month}-01`, to: `${month}-31` })}
+        />
+      </div>
     </div>
   )
 }
