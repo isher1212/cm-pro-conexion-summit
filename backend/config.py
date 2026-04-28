@@ -45,6 +45,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "monthly_report_day": 1,
     "monthly_report_hour": 9,
     "duplicate_window_days": 7,
+    "auto_publish_enabled": False,
+    "auto_publish_platforms": ["Instagram"],
+    "notification_score_threshold": 8,
+    "notify_on_new_trend": True,
     "rss_sources": [
         {"name": "iNNpulsa Colombia", "url": "https://innpulsacolombia.com/feed", "active": True, "category": "Colombia"},
         {"name": "Endeavor Colombia", "url": "https://endeavor.org.co/feed", "active": True, "category": "Colombia"},

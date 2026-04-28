@@ -207,6 +207,38 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         conn.commit()
     except Exception:
         pass
+    # Phase 13 migrations
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                message TEXT,
+                item_type TEXT,
+                item_id INTEGER,
+                read_at TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE content_proposals ADD COLUMN auto_publish INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE content_proposals ADD COLUMN published_at TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE content_proposals ADD COLUMN published_url TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 _conn: sqlite3.Connection | None = None
