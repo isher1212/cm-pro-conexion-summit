@@ -36,26 +36,28 @@ def _extract_content(entry: Any) -> str:
     return ""
 
 
-def build_summary_prompt(title: str, content: str, source: str, brand_context: str = "") -> str:
+def build_summary_prompt(title: str, source: str, content: str, brand_context: str = "") -> str:
     """Build the GPT prompt for summarizing a single article."""
-    return f"""Eres analista de contenido para Conexión Summit (plataforma de emprendimiento LATAM).
+    context_line = f"\nContexto de marca: {brand_context}" if brand_context else ""
+    return f"""Eres analista de contenido para Conexión Summit (plataforma de emprendimiento LATAM).{context_line}
 
 Artículo:
 TÍTULO: {title}
 FUENTE: {source}
 CONTENIDO: {content[:800]}
 
-Responde EXACTAMENTE en este formato (sin texto adicional):
+Responde EXACTAMENTE en este formato (sin texto adicional, en español):
 
 TITULO_ES: [título traducido al español, natural, máx 12 palabras]
-RESUMEN: [resumen en español, máx 2 líneas, enfocado en el ecosistema emprendedor]
-RELEVANCIA: [cómo este artículo impacta o se relaciona con Conexión Summit, máx 1 línea]"""
+RESUMEN: [resumen en español, máx 2 líneas, enfocado en el ecosistema emprendedor LATAM]
+RELEVANCIA: [cómo este artículo impacta o se relaciona con Conexión Summit, máx 1 línea]
+RELEVANCIA_SCORE: [número entero del 1 al 10. 10=muy relevante para Conexión Summit (startups/innovación/LATAM/conexiones B2B). 1=irrelevante. Considera: cercanía al ecosistema emprendedor de Colombia/LATAM, valor para community manager, potencial de contenido]"""
 
 
 def summarize_article(title: str, content: str, source: str, openai_client: Any, brand_context: str = "") -> dict:
     """Call GPT-4o mini to generate summary and relevance for an article."""
     try:
-        prompt = build_summary_prompt(title, content, source, brand_context)
+        prompt = build_summary_prompt(title, source, content, brand_context)
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
@@ -63,21 +65,25 @@ def summarize_article(title: str, content: str, source: str, openai_client: Any,
             temperature=0.3,
         )
         text = response.choices[0].message.content or ""
-        title_es = ""
-        summary = ""
-        relevance = ""
+        result = {"title_es": "", "summary": "", "relevance": "", "relevance_score": 0}
         for line in text.split("\n"):
             line = line.strip()
             if line.startswith("TITULO_ES:"):
-                title_es = line.replace("TITULO_ES:", "").strip()
+                result["title_es"] = line.replace("TITULO_ES:", "").strip()
+            elif line.startswith("RELEVANCIA_SCORE:"):
+                try:
+                    num = int(''.join(c for c in line.replace("RELEVANCIA_SCORE:", "") if c.isdigit()))
+                    result["relevance_score"] = max(1, min(10, num))
+                except Exception:
+                    result["relevance_score"] = 5
             elif line.startswith("RESUMEN:"):
-                summary = line.replace("RESUMEN:", "").strip()
+                result["summary"] = line.replace("RESUMEN:", "").strip()
             elif line.startswith("RELEVANCIA:"):
-                relevance = line.replace("RELEVANCIA:", "").strip()
-        return {"title_es": title_es, "summary": summary, "relevance": relevance}
+                result["relevance"] = line.replace("RELEVANCIA:", "").strip()
+        return result
     except Exception as e:
         logger.warning(f"Failed to summarize article '{title}': {e}")
-        return {"summary": "", "relevance": ""}
+        return {"title_es": "", "summary": "", "relevance": "", "relevance_score": 0}
 
 
 def store_article(conn: sqlite3.Connection, article: dict) -> None:
@@ -85,22 +91,35 @@ def store_article(conn: sqlite3.Connection, article: dict) -> None:
     try:
         conn.execute(
             """INSERT OR IGNORE INTO articles
-               (title, source, url, summary, relevance, category, fetched_at, title_es)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               (title, title_es, source, url, summary, relevance, relevance_score, category, fetched_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 article["title"],
+                article.get("title_es", ""),
                 article["source"],
                 article["url"],
                 article.get("summary", ""),
                 article.get("relevance", ""),
+                article.get("relevance_score", 0),
                 article.get("category", ""),
                 article.get("fetched_at", datetime.now().isoformat()),
-                article.get("title_es", ""),
             ),
         )
+        # Backfill: si ya existía, rellena campos vacíos
         conn.execute(
-            "UPDATE articles SET title_es = ? WHERE url = ? AND (title_es IS NULL OR title_es = '')",
-            (article.get("title_es", ""), article["url"]),
+            """UPDATE articles
+               SET title_es = CASE WHEN (title_es IS NULL OR title_es = '') THEN ? ELSE title_es END,
+                   summary = CASE WHEN (summary IS NULL OR summary = '') THEN ? ELSE summary END,
+                   relevance = CASE WHEN (relevance IS NULL OR relevance = '') THEN ? ELSE relevance END,
+                   relevance_score = CASE WHEN (relevance_score IS NULL OR relevance_score = 0) THEN ? ELSE relevance_score END
+               WHERE url = ?""",
+            (
+                article.get("title_es", ""),
+                article.get("summary", ""),
+                article.get("relevance", ""),
+                article.get("relevance_score", 0),
+                article["url"],
+            ),
         )
         conn.commit()
     except Exception as e:
@@ -135,25 +154,42 @@ def run_intelligence_cycle(conn: sqlite3.Connection, config: dict, openai_client
     brand_context = config.get("brand_context", "")
     stored_count = 0
 
+    limits_by_category = {
+        "Colombia": config.get("count_articles_colombia", 5),
+        "LATAM": config.get("count_articles_latam", 5),
+        "Global": config.get("count_articles_global", 5),
+    }
+    counts_by_category: dict[str, int] = {"Colombia": 0, "LATAM": 0, "Global": 0}
+    max_per_feed = config.get("max_articles_per_feed", 10)
+
     for source in sources:
-        max_per_feed = config.get("max_articles_per_feed", 10)
-        articles = parse_rss_feed(source["url"], source_name=source["name"], max_items=max_per_feed)
+        cat = source.get("category", "Global")
+        cat_limit = limits_by_category.get(cat, 5)
+        cat_count = counts_by_category.get(cat, 0)
+        if cat_count >= cat_limit:
+            continue
+        remaining = cat_limit - cat_count
+        take = min(max_per_feed, remaining)
+
+        articles = parse_rss_feed(source["url"], source_name=source["name"], max_items=take)
         for article in articles:
-            article["category"] = source.get("category", "")
+            article["category"] = cat
             if openai_client:
                 result = summarize_article(
                     article["title"], article["content"], article["source"],
                     openai_client, brand_context
                 )
-                article["title_es"] = result["title_es"]
-                article["summary"] = result["summary"]
-                article["relevance"] = result["relevance"]
+                article["title_es"] = result.get("title_es", "")
+                article["summary"] = result.get("summary", "")
+                article["relevance"] = result.get("relevance", "")
+                article["relevance_score"] = result.get("relevance_score", 0)
             article["fetched_at"] = datetime.now().isoformat()
             before = _count_articles(conn)
             store_article(conn, article)
             after = _count_articles(conn)
             if after > before:
                 stored_count += 1
+                counts_by_category[cat] = counts_by_category.get(cat, 0) + 1
 
     return stored_count
 

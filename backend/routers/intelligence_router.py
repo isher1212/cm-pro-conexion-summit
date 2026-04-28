@@ -14,11 +14,11 @@ router = APIRouter()
 
 
 @router.get("/intelligence/articles")
-def get_articles(limit: int = 50, category: str = "", search: str = ""):
+def get_articles(limit: int = 50, category: str = "", search: str = "", sort: str = "recent"):
     config = load_config()
     age_days = config.get("max_articles_age_days", 30)
     conn = get_db()
-    query = """SELECT id, title, title_es, source, url, summary, relevance, category, fetched_at
+    query = """SELECT id, title, title_es, source, url, summary, relevance, relevance_score, category, fetched_at
                FROM articles
                WHERE fetched_at >= datetime('now', ?)"""
     params: list = [f"-{age_days} days"]
@@ -28,10 +28,14 @@ def get_articles(limit: int = 50, category: str = "", search: str = ""):
     if search:
         query += " AND (title LIKE ? OR title_es LIKE ? OR summary LIKE ?)"
         params += [f"%{search}%", f"%{search}%", f"%{search}%"]
-    query += " ORDER BY fetched_at DESC LIMIT ?"
+    if sort == "relevance":
+        query += " ORDER BY relevance_score DESC, fetched_at DESC"
+    else:
+        query += " ORDER BY fetched_at DESC"
+    query += " LIMIT ?"
     params.append(min(limit, 200))
     rows = conn.execute(query, params).fetchall()
-    cols = ["id", "title", "title_es", "source", "url", "summary", "relevance", "category", "fetched_at"]
+    cols = ["id", "title", "title_es", "source", "url", "summary", "relevance", "relevance_score", "category", "fetched_at"]
     return [dict(zip(cols, r)) for r in rows]
 
 
@@ -129,3 +133,61 @@ COMO_PROMOVERLO: [cómo mostrarlo en redes/la marca, máx 2 líneas]"""
     except Exception as e:
         logger.warning(f"analyze_article failed: {e}")
         return {"error": "No se pudo generar el análisis"}
+
+
+@router.post("/intelligence/reprocess")
+def reprocess_articles(body: dict = None):
+    """Re-procesa artículos viejos sin title_es o relevance_score."""
+    config = load_config()
+    client = _get_openai_client(config)
+    if not client:
+        return {"error": "OpenAI API key no configurada"}
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT id, title, source, summary
+           FROM articles
+           WHERE (title_es IS NULL OR title_es = '' OR relevance_score IS NULL OR relevance_score = 0)
+           ORDER BY fetched_at DESC LIMIT 50"""
+    ).fetchall()
+    from backend.services.intelligence import build_summary_prompt
+    updated = 0
+    for row in rows:
+        article_id, title, source, existing_summary = row
+        prompt = build_summary_prompt(title, source, existing_summary or title, config.get("brand_context", ""))
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=300,
+                temperature=0.4,
+            )
+            text = response.choices[0].message.content or ""
+            title_es = ""; summary = ""; relevance = ""; score = 0
+            for line in text.split("\n"):
+                line = line.strip()
+                if line.startswith("TITULO_ES:"):
+                    title_es = line.replace("TITULO_ES:", "").strip()
+                elif line.startswith("RELEVANCIA_SCORE:"):
+                    try:
+                        num = int(''.join(c for c in line.replace("RELEVANCIA_SCORE:", "") if c.isdigit()))
+                        score = max(1, min(10, num))
+                    except Exception:
+                        score = 5
+                elif line.startswith("RESUMEN:"):
+                    summary = line.replace("RESUMEN:", "").strip()
+                elif line.startswith("RELEVANCIA:"):
+                    relevance = line.replace("RELEVANCIA:", "").strip()
+            conn.execute(
+                """UPDATE articles SET
+                       title_es = CASE WHEN (title_es IS NULL OR title_es = '') THEN ? ELSE title_es END,
+                       summary = CASE WHEN (summary IS NULL OR summary = '') THEN ? ELSE summary END,
+                       relevance = CASE WHEN (relevance IS NULL OR relevance = '') THEN ? ELSE relevance END,
+                       relevance_score = CASE WHEN (relevance_score IS NULL OR relevance_score = 0) THEN ? ELSE relevance_score END
+                   WHERE id = ?""",
+                (title_es, summary, relevance, score, article_id),
+            )
+            conn.commit()
+            updated += 1
+        except Exception as e:
+            logger.warning(f"reprocess failed for article {article_id}: {e}")
+    return {"status": "ok", "updated": updated}
