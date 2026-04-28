@@ -30,6 +30,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "linkedin_api_key": "",
     "alert_threshold_pct": 20,
     "brand_context": "",
+    "max_articles_per_feed": 10,
+    "max_articles_age_days": 30,
+    "max_trends_google": 5,
+    "max_trends_youtube": 5,
     "rss_sources": [
         {"name": "iNNpulsa Colombia", "url": "https://innpulsacolombia.com/feed", "active": True, "category": "Colombia"},
         {"name": "Endeavor Colombia", "url": "https://endeavor.org.co/feed", "active": True, "category": "Colombia"},

@@ -116,6 +116,30 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         conn.commit()
     except Exception:
         pass  # column already exists
+    # Phase 10 migration: title_es column for articles
+    try:
+        conn.execute("ALTER TABLE articles ADD COLUMN title_es TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
+    # Phase 10 migration: saved_items table
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS saved_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                item_type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                url TEXT,
+                summary TEXT,
+                source TEXT,
+                category TEXT,
+                platform TEXT,
+                saved_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 _conn: sqlite3.Connection | None = None
