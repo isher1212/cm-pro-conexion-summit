@@ -66,6 +66,9 @@ def generate_proposal_images(body: dict):
     if proposal_id and urls:
         update_proposal(get_db(), proposal_id, {"image_urls": json.dumps(urls)})
 
+    if not urls:
+        logger.warning("generate_proposal_images: Kie AI returned 0 URLs")
+        return {"urls": [], "error": "Kie AI no generó imágenes. Verifica la API key y el saldo de la cuenta."}
     return {"urls": urls, "proposal_id": proposal_id}
 
 

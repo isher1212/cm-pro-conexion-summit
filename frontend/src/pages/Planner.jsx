@@ -51,6 +51,8 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
   const [imgCount, setImgCount] = useState(2)
   const [imgGenerating, setImgGenerating] = useState(false)
   const [imgError, setImgError] = useState('')
+  const [imgProgress, setImgProgress] = useState(0)
+  const [imgElapsed, setImgElapsed] = useState(0)
   const [imgPrompt, setImgPrompt] = useState('')
   const [imgPromptLoading, setImgPromptLoading] = useState(false)
   const [imgStep, setImgStep] = useState(1)
@@ -136,6 +138,14 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
   async function handleGenerateImages() {
     setImgGenerating(true)
     setImgError('')
+    setImgProgress(0)
+    setImgElapsed(0)
+    const startTime = Date.now()
+    const interval = setInterval(() => {
+      const secs = Math.floor((Date.now() - startTime) / 1000)
+      setImgElapsed(secs)
+      setImgProgress(Math.min(88, Math.round(100 * (1 - Math.exp(-secs / 35)))))
+    }, 1000)
     try {
       const res = await fetch('/api/images/generate', {
         method: 'POST',
@@ -150,6 +160,8 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
           n: isCarousel ? Math.max(2, Math.min(10, imgCount)) : 1,
         }),
       })
+      clearInterval(interval)
+      setImgProgress(100)
       if (!res.ok) {
         setImgError('Error al generar imagen. Verifique la API key de Kie AI.')
         return
@@ -162,11 +174,15 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
         setImgPanel(false)
         setImgStep(1)
         setImgPrompt('')
+      } else {
+        setImgError('No se generó ninguna imagen. Verifica la API key de Kie AI en Configuración.')
       }
     } catch {
+      clearInterval(interval)
       setImgError('Error de conexión al generar imagen.')
     } finally {
       setImgGenerating(false)
+      setTimeout(() => setImgProgress(0), 800)
     }
   }
 
@@ -345,6 +361,21 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
                       <button onClick={() => setImgStep(1)}
                         className="text-xs text-gray-400 hover:text-gray-600">← Atrás</button>
                     </div>
+                    {imgGenerating && (
+                      <div className="space-y-1 mt-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-violet-600 font-medium">Generando con Kie AI...</span>
+                          <span className="text-xs text-gray-400 tabular-nums">{imgElapsed}s</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-violet-500 to-indigo-500 h-1.5 rounded-full transition-all duration-1000 ease-out"
+                            style={{ width: `${imgProgress}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-400">Puede tomar 30-90 segundos...</p>
+                      </div>
+                    )}
                     {imgError && <p className="text-xs text-red-500">{imgError}</p>}
                   </>
                 )}

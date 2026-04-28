@@ -31,6 +31,9 @@ function TrendCard({ trend, fetchAll }) {
   const [sent, setSent] = useState(false)
   const [replicateError, setReplicateError] = useState('')
 
+  const [progress, setProgress] = useState(0)
+  const [elapsed, setElapsed] = useState(0)
+
   const [analysis, setAnalysis] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState('')
@@ -81,6 +84,14 @@ function TrendCard({ trend, fetchAll }) {
     setLoading(true)
     setResult(null)
     setReplicateError('')
+    setProgress(0)
+    setElapsed(0)
+    const startTime = Date.now()
+    const interval = setInterval(() => {
+      const secs = Math.floor((Date.now() - startTime) / 1000)
+      setElapsed(secs)
+      setProgress(Math.min(88, Math.round(100 * (1 - Math.exp(-secs / 35)))))
+    }, 1000)
     try {
       const res = await fetch('/api/images/replicate-trend', {
         method: 'POST',
@@ -95,6 +106,8 @@ function TrendCard({ trend, fetchAll }) {
           send_to_parrilla: false,
         }),
       })
+      clearInterval(interval)
+      setProgress(100)
       if (!res.ok) {
         setReplicateError('Error al replicar tendencia.')
         return
@@ -102,13 +115,17 @@ function TrendCard({ trend, fetchAll }) {
       const data = await res.json()
       if (data.error) {
         setReplicateError(data.error)
+      } else if (mode === 'image' && (!data.urls || data.urls.length === 0)) {
+        setReplicateError('No se generó ninguna imagen. Verifica la API key de Kie AI en Configuración.')
       } else {
         setResult(data)
       }
     } catch {
+      clearInterval(interval)
       setReplicateError('Error de conexión.')
     } finally {
       setLoading(false)
+      setTimeout(() => setProgress(0), 800)
     }
   }
 
@@ -280,16 +297,35 @@ function TrendCard({ trend, fetchAll }) {
               <button onClick={() => { setPanel(false); setResult(null); setSent(false); setReplicateError('') }}
                 className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
             </div>
+            {loading && (
+              <div className="space-y-1 mt-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-violet-600 font-medium">Generando con Kie AI...</span>
+                  <span className="text-xs text-gray-400 tabular-nums">{elapsed}s</span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-violet-500 to-indigo-500 h-1.5 rounded-full transition-all duration-1000 ease-out"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-400">Puede tomar 30-90 segundos...</p>
+              </div>
+            )}
             {replicateError && <p className="text-xs text-red-500">{replicateError}</p>}
 
             {result && (
               <div className="mt-2 p-3 bg-violet-50 rounded-lg border border-violet-100 space-y-2">
                 {Array.isArray(result.urls) && result.urls.length > 0 && (
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="space-y-2">
                     {result.urls.map(url => (
-                      <a key={url} href={url} target="_blank" rel="noreferrer">
-                        <img src={url} alt="" className="w-24 h-24 object-cover rounded-lg border border-violet-100" />
-                      </a>
+                      <div key={url} className="relative group">
+                        <img src={url} alt="" className="w-full max-h-56 object-contain rounded-xl border border-violet-100 bg-violet-50/30" />
+                        <a href={url} target="_blank" rel="noreferrer"
+                          className="absolute inset-0 flex items-end justify-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-xs bg-black/50 text-white px-2 py-0.5 rounded">Ver original ↗</span>
+                        </a>
+                      </div>
                     ))}
                   </div>
                 )}
