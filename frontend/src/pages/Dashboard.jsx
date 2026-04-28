@@ -126,12 +126,30 @@ export default function Dashboard() {
               <Sparkles size={16} className="text-indigo-500" /> Top noticias
             </h2>
             <Link to="/intelligence" className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
-              Ver todas <ArrowRight size={12} />
+              Radar Noticias <ArrowRight size={12} />
             </Link>
           </div>
           <div className="space-y-3">
             {data.top_articles.length === 0 ? (
-              <p className="text-sm text-gray-400">Aún no hay artículos. Actualiza desde Inteligencia.</p>
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400 mb-3">Haz clic en "Actualizar ahora" en Radar Noticias para cargar noticias reales.</p>
+                {[
+                  { title: 'Startups latinoamericanas recaudan USD 1.2B en Q1 2025', source: 'TechCrunch', score: 9 },
+                  { title: 'Conexión Summit: el ecosistema emprendedor de LATAM crece 40%', source: 'Forbes LATAM', score: 8 },
+                  { title: 'Tendencias de IA en empresas medianas de Colombia y México', source: 'El País', score: 7 },
+                ].map((a, i) => (
+                  <div key={i} className="p-3 rounded-lg border border-dashed border-gray-200 bg-gray-50/60 opacity-70">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-sm font-medium text-gray-500 leading-snug flex-1 line-clamp-2">{a.title}</h3>
+                      <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 bg-green-100 text-green-700">{a.score}/10</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xs text-gray-400">{a.source}</p>
+                      <span className="text-xs text-gray-300 bg-gray-100 px-1.5 py-0.5 rounded">ejemplo</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : data.top_articles.map(a => {
               const score = a.score || 0
               const scoreColor = score >= 7 ? 'bg-green-100 text-green-700' : score >= 4 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'
@@ -159,7 +177,25 @@ export default function Dashboard() {
           </div>
           <div className="space-y-3">
             {data.top_trends.length === 0 ? (
-              <p className="text-sm text-gray-400">No hay tendencias recientes.</p>
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400 mb-3">Las tendencias aparecen aquí al sincronizar desde la sección Tendencias.</p>
+                {[
+                  { keyword: 'Inteligencia artificial para emprendedores', platform: 'Google Trends', post_idea: 'Carrusel: 5 herramientas de IA que todo founder LATAM debería usar' },
+                  { keyword: 'Demo Day LATAM', platform: 'LinkedIn', post_idea: 'Reel detrás de cámaras de un Demo Day real' },
+                  { keyword: 'Bootstrapping vs Venture Capital', platform: 'TikTok', post_idea: 'Video debate: ¿qué modelo es mejor para startups latinas?' },
+                ].map((t, i) => (
+                  <div key={i} className="p-3 rounded-lg border border-dashed border-gray-200 bg-gray-50/60 opacity-70">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h3 className="text-sm font-medium text-gray-500 leading-snug flex-1">{t.keyword}</h3>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-violet-500 bg-violet-50 px-2 py-0.5 rounded-full flex-shrink-0">{t.platform}</span>
+                        <span className="text-xs text-gray-300 bg-gray-100 px-1.5 py-0.5 rounded">ejemplo</span>
+                      </div>
+                    </div>
+                    {t.post_idea && <p className="text-xs text-gray-400 line-clamp-2 mt-1">💡 {t.post_idea}</p>}
+                  </div>
+                ))}
+              </div>
             ) : data.top_trends.map(t => (
               <div key={t.id} className="p-3 rounded-lg border border-gray-50 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start justify-between gap-2 mb-1">
@@ -183,7 +219,29 @@ export default function Dashboard() {
           </div>
           <div className="space-y-2">
             {data.upcoming_posts.length === 0 ? (
-              <p className="text-sm text-gray-400">No hay publicaciones programadas.</p>
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400 mb-2">Genera propuestas desde la Parrilla para verlas aquí.</p>
+                {[
+                  { topic: 'Cómo validar tu idea de negocio en 48h', platform: 'Instagram', format: 'Carrusel', suggested_date: '2025-05-05', status: 'proposed' },
+                  { topic: 'Behind the scenes: Demo Endeavor', platform: 'TikTok', format: 'Reel', suggested_date: '2025-05-08', status: 'approved' },
+                ].map((p, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50/60 opacity-70">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-500 truncate">{p.topic}</p>
+                      <p className="text-xs text-gray-400">{p.platform} · {p.format}</p>
+                    </div>
+                    <div className="flex flex-col items-end flex-shrink-0">
+                      <span className="text-xs text-gray-400">{p.suggested_date}</span>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${p.status === 'approved' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                          {p.status === 'approved' ? 'Aprobada' : 'Propuesta'}
+                        </span>
+                        <span className="text-xs text-gray-300 bg-gray-100 px-1 py-0.5 rounded">ej.</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : data.upcoming_posts.map(p => (
               <div key={p.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-gray-50">
                 <div className="flex-1 min-w-0">
@@ -207,7 +265,27 @@ export default function Dashboard() {
           </h2>
           <div className="space-y-2">
             {data.upcoming_events.length === 0 ? (
-              <p className="text-sm text-gray-400">No hay eventos próximos.</p>
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400 mb-2">Agrega eventos desde la Parrilla para planificar contenido alrededor de ellos.</p>
+                {[
+                  { title: 'Demo Endeavor — Conexión Summit', date: '2025-05-15', type: 'evento' },
+                  { title: 'Webinar: Fundraising para startups LATAM', date: '2025-05-22', type: 'alianza' },
+                ].map((ev, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50/60 opacity-70">
+                    <div className="text-center w-12 flex-shrink-0">
+                      <div className="text-xs text-gray-400 uppercase">{new Date(ev.date).toLocaleString('es-CO', { month: 'short' })}</div>
+                      <div className="text-lg font-bold text-gray-400 leading-none">{new Date(ev.date).getDate()}</div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-500 truncate">{ev.title}</p>
+                      <div className="flex items-center gap-1">
+                        <p className="text-xs text-gray-400">{ev.type}</p>
+                        <span className="text-xs text-gray-300 bg-gray-100 px-1 py-0.5 rounded">ejemplo</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : data.upcoming_events.map(ev => (
               <div key={ev.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-50">
                 <div className="text-center w-12 flex-shrink-0">
