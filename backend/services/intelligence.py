@@ -38,18 +38,18 @@ def _extract_content(entry: Any) -> str:
 
 def build_summary_prompt(title: str, content: str, source: str, brand_context: str = "") -> str:
     """Build the GPT prompt for summarizing a single article."""
-    context_line = f"\nContexto de la marca: {brand_context}" if brand_context else ""
-    return f"""Eres el asistente de análisis de contenido para Conexión Summit, una plataforma de emprendimiento e innovación en LATAM.{context_line}
-
-Analiza el siguiente artículo y responde en español con este formato exacto:
-
-RESUMEN: [3 líneas máximo resumiendo el artículo]
-RELEVANCIA: [1 línea explicando si este artículo es relevante para Conexión Summit y por qué]
+    return f"""Eres analista de contenido para Conexión Summit (plataforma de emprendimiento LATAM).
 
 Artículo:
-Título: {title}
-Fuente: {source}
-Contenido: {content[:2000]}"""
+TÍTULO: {title}
+FUENTE: {source}
+CONTENIDO: {content[:800]}
+
+Responde EXACTAMENTE en este formato (sin texto adicional):
+
+TITULO_ES: [título traducido al español, natural, máx 12 palabras]
+RESUMEN: [resumen en español, máx 2 líneas, enfocado en el ecosistema emprendedor]
+RELEVANCIA: [cómo este artículo impacta o se relaciona con Conexión Summit, máx 1 línea]"""
 
 
 def summarize_article(title: str, content: str, source: str, openai_client: Any, brand_context: str = "") -> dict:
@@ -63,14 +63,18 @@ def summarize_article(title: str, content: str, source: str, openai_client: Any,
             temperature=0.3,
         )
         text = response.choices[0].message.content or ""
+        title_es = ""
         summary = ""
         relevance = ""
         for line in text.split("\n"):
-            if line.startswith("RESUMEN:"):
+            line = line.strip()
+            if line.startswith("TITULO_ES:"):
+                title_es = line.replace("TITULO_ES:", "").strip()
+            elif line.startswith("RESUMEN:"):
                 summary = line.replace("RESUMEN:", "").strip()
             elif line.startswith("RELEVANCIA:"):
                 relevance = line.replace("RELEVANCIA:", "").strip()
-        return {"summary": summary, "relevance": relevance}
+        return {"title_es": title_es, "summary": summary, "relevance": relevance}
     except Exception as e:
         logger.warning(f"Failed to summarize article '{title}': {e}")
         return {"summary": "", "relevance": ""}
@@ -81,8 +85,8 @@ def store_article(conn: sqlite3.Connection, article: dict) -> None:
     try:
         conn.execute(
             """INSERT OR IGNORE INTO articles
-               (title, source, url, summary, relevance, category, fetched_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+               (title, source, url, summary, relevance, category, fetched_at, title_es)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 article["title"],
                 article["source"],
@@ -91,7 +95,12 @@ def store_article(conn: sqlite3.Connection, article: dict) -> None:
                 article.get("relevance", ""),
                 article.get("category", ""),
                 article.get("fetched_at", datetime.now().isoformat()),
+                article.get("title_es", ""),
             ),
+        )
+        conn.execute(
+            "UPDATE articles SET title_es = ? WHERE url = ? AND (title_es IS NULL OR title_es = '')",
+            (article.get("title_es", ""), article["url"]),
         )
         conn.commit()
     except Exception as e:
@@ -127,7 +136,8 @@ def run_intelligence_cycle(conn: sqlite3.Connection, config: dict, openai_client
     stored_count = 0
 
     for source in sources:
-        articles = parse_rss_feed(source["url"], source_name=source["name"], max_items=10)
+        max_per_feed = config.get("max_articles_per_feed", 10)
+        articles = parse_rss_feed(source["url"], source_name=source["name"], max_items=max_per_feed)
         for article in articles:
             article["category"] = source.get("category", "")
             if openai_client:
@@ -135,6 +145,7 @@ def run_intelligence_cycle(conn: sqlite3.Connection, config: dict, openai_client
                     article["title"], article["content"], article["source"],
                     openai_client, brand_context
                 )
+                article["title_es"] = result["title_es"]
                 article["summary"] = result["summary"]
                 article["relevance"] = result["relevance"]
             article["fetched_at"] = datetime.now().isoformat()

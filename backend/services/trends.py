@@ -214,8 +214,11 @@ def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any 
     brand_context = config.get("brand_context", "")
     stored_count = 0
 
+    max_google = config.get("max_trends_google", 5)
+    max_youtube = config.get("max_trends_youtube", 5)
+
     # Google Trends
-    google_items = fetch_google_trends(keywords, geo="CO")
+    google_items = fetch_google_trends(keywords, geo="CO")[:max_google]
     for item in google_items:
         if openai_client:
             analysis = analyze_trend(item["keyword"], item["platform"], openai_client, brand_context)
@@ -225,7 +228,7 @@ def run_trends_cycle(conn: sqlite3.Connection, config: dict, openai_client: Any 
             stored_count += 1
 
     # YouTube Trending
-    yt_items = fetch_youtube_trending(max_items=5)
+    yt_items = fetch_youtube_trending(max_items=max_youtube)
     for item in yt_items:
         if openai_client:
             analysis = analyze_trend(item["keyword"], item["platform"], openai_client, brand_context)
