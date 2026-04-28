@@ -344,6 +344,19 @@ export default function Settings() {
           <p className="text-xs text-gray-400 mt-2">TikTok y LinkedIn no tienen API pública; las tendencias se generan analizando estas keywords con IA.</p>
         </section>
 
+        {/* Auto-publicación */}
+        <section>
+          <h2 className="text-base font-semibold text-gray-700 mb-4 pb-2 border-b">Auto-publicación</h2>
+          <label className="flex items-center gap-2 mb-2 cursor-pointer">
+            <input type="checkbox"
+              checked={!!cfg.auto_publish_enabled}
+              onChange={e => updateField('auto_publish_enabled', e.target.checked)}
+              className="accent-indigo-600 rounded" />
+            <span className="text-sm text-gray-700 font-medium">Habilitar auto-publicación global</span>
+          </label>
+          <p className="text-xs text-gray-400">Cuando esté activado, las propuestas marcadas con "Auto-publicar" en Parrilla se publicarán automáticamente cada hora si están aprobadas, tienen imagen y la fecha programada llegó. Requiere conexión Meta API configurada (Instagram). TikTok/LinkedIn requieren publicación manual y generan notificación.</p>
+        </section>
+
         {/* Uso y costos de IA */}
         <section>
           <h2 className="text-base font-semibold text-gray-700 mb-4 pb-2 border-b">Uso y costos de IA</h2>
