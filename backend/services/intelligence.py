@@ -241,6 +241,52 @@ def run_intelligence_cycle(conn: sqlite3.Connection, config: dict, openai_client
                 stored_count += 1
                 counts_by_category[cat] = counts_by_category.get(cat, 0) + 1
 
+    # Phase 14: fuentes adicionales (Reddit, foros, etc — RSS opcional)
+    for src in config.get("additional_sources", []) or []:
+        if not src.get("active", True):
+            continue
+        cat = src.get("category", "Global")
+        cat_limit = limits_by_category.get(cat, 5)
+        if counts_by_category.get(cat, 0) >= cat_limit:
+            continue
+        try:
+            feed = feedparser.parse(src.get("url", ""))
+            remaining = cat_limit - counts_by_category.get(cat, 0)
+            take = min(max_per_feed, remaining)
+            for entry in feed.entries[:take]:
+                article = {
+                    "title": entry.get("title", ""),
+                    "source": src.get("name", "additional"),
+                    "url": entry.get("link", ""),
+                    "category": cat,
+                    "fetched_at": datetime.now().isoformat(),
+                }
+                if not article["title"] or not article["url"]:
+                    continue
+                if openai_client:
+                    try:
+                        ai_data = summarize_article(
+                            article["title"],
+                            entry.get("summary", "") or article["title"],
+                            article["source"],
+                            openai_client,
+                            brand_context,
+                        )
+                        article["title_es"] = ai_data.get("title_es", "")
+                        article["summary"] = ai_data.get("summary", "")
+                        article["relevance"] = ai_data.get("relevance", "")
+                        article["relevance_score"] = ai_data.get("relevance_score", 0)
+                    except Exception:
+                        pass
+                before = _count_articles(conn)
+                store_article(conn, article)
+                after = _count_articles(conn)
+                if after > before:
+                    stored_count += 1
+                    counts_by_category[cat] = counts_by_category.get(cat, 0) + 1
+        except Exception as e:
+            logger.warning(f"additional source failed {src.get('url')}: {e}")
+
     return stored_count
 
 
