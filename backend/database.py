@@ -105,6 +105,17 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_metrics_week ON metrics(platform, week_label)"
     )
     conn.commit()
+    # Phase 9 migration: image generation columns
+    try:
+        conn.execute("ALTER TABLE content_proposals ADD COLUMN image_urls TEXT DEFAULT '[]'")
+        conn.commit()
+    except Exception:
+        pass  # column already exists
+    try:
+        conn.execute("ALTER TABLE content_proposals ADD COLUMN video_script TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass  # column already exists
     return conn
 
 _conn: sqlite3.Connection | None = None
