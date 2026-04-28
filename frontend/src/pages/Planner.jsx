@@ -64,6 +64,17 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
   const [scriptOpen, setScriptOpen] = useState(false)
   const [scriptError, setScriptError] = useState('')
 
+  const ALL_PLATFORMS = ['Instagram', 'TikTok', 'LinkedIn']
+  const [replicateOpen, setReplicateOpen] = useState(false)
+  const [replicateForm, setReplicateForm] = useState({
+    platform: ALL_PLATFORMS.find(p => p !== proposal.platform) || 'Instagram',
+    topic: proposal.topic,
+    caption_draft: proposal.caption_draft,
+    hashtags: proposal.hashtags,
+    format: proposal.format,
+    suggested_date: proposal.suggested_date,
+  })
+
   async function handleGenerateScript() {
     setScriptGenerating(true)
     setScriptError('')
@@ -225,6 +236,10 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
                   Recuperar
                 </button>
               )}
+              <button onClick={() => setReplicateOpen(v => !v)}
+                className="text-xs text-gray-400 hover:text-gray-600 ml-1">
+                Replicar en...
+              </button>
               <button
                 onClick={() => setEditing(true)}
                 className="text-xs text-gray-400 hover:text-gray-600 ml-auto"
@@ -312,6 +327,53 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
                 </div>
               ) : null)}
               {script.duracion && <p className="text-xs text-blue-400 mt-1">⏱ {script.duracion}s</p>}
+            </div>
+          )}
+
+          {replicateOpen && (
+            <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
+              <p className="text-xs font-semibold text-gray-700">Replicar en otra plataforma</p>
+              <div className="flex gap-2 flex-wrap">
+                {ALL_PLATFORMS.filter(p => p !== proposal.platform).map(p => (
+                  <button key={p}
+                    onClick={() => setReplicateForm(f => ({ ...f, platform: p }))}
+                    className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${
+                      replicateForm.platform === p
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-0.5 block">Copy</label>
+                <textarea value={replicateForm.caption_draft}
+                  onChange={e => setReplicateForm(f => ({ ...f, caption_draft: e.target.value }))}
+                  rows={2} className="w-full border border-gray-200 rounded px-2 py-1 text-xs resize-none" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-0.5 block">Hashtags</label>
+                <input value={replicateForm.hashtags}
+                  onChange={e => setReplicateForm(f => ({ ...f, hashtags: e.target.value }))}
+                  className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    await fetch('/api/planner/proposals', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ ...replicateForm, status: 'proposed', created_at: new Date().toISOString() }),
+                    })
+                    setReplicateOpen(false)
+                    window.dispatchEvent(new CustomEvent('cm-refresh-proposals'))
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg">
+                  Guardar copia
+                </button>
+                <button onClick={() => setReplicateOpen(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+              </div>
             </div>
           )}
     </div>
@@ -492,7 +554,12 @@ export default function Planner() {
     setProposals(propData.proposals || [])
   }, [])
 
-  useEffect(() => { fetchAll() }, [fetchAll])
+  useEffect(() => {
+    fetchAll()
+    const handler = () => fetchAll()
+    window.addEventListener('cm-refresh-proposals', handler)
+    return () => window.removeEventListener('cm-refresh-proposals', handler)
+  }, [fetchAll])
 
   const filteredProposals = activeTab
     ? proposals.filter(p => p.status === activeTab)
