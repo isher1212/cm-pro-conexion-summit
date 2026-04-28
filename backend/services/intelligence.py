@@ -159,6 +159,19 @@ def store_article(conn: sqlite3.Connection, article: dict) -> None:
             ),
         )
         conn.commit()
+        # Phase 13: notif si score alto
+        try:
+            from backend.config import load_config
+            cfg = load_config()
+            score = article.get("relevance_score", 0) or 0
+            threshold = cfg.get("notification_score_threshold", 8)
+            if score >= threshold:
+                from backend.services.notifications import trigger_relevant_article
+                cur = conn.execute("SELECT id FROM articles WHERE url = ?", (article["url"],)).fetchone()
+                if cur:
+                    trigger_relevant_article(cur[0], article.get("title_es") or article.get("title", ""), score, threshold)
+        except Exception as e:
+            logger.warning(f"notif trigger article failed: {e}")
     except Exception as e:
         logger.warning(f"Failed to store article {article.get('url')}: {e}")
 

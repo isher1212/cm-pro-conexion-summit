@@ -220,6 +220,17 @@ def store_trend(conn: sqlite3.Connection, trend: dict) -> bool:
             ),
         )
         conn.commit()
+        # Phase 13: notif nueva tendencia
+        try:
+            from backend.config import load_config
+            cfg = load_config()
+            if cfg.get("notify_on_new_trend", True):
+                from backend.services.notifications import trigger_new_trend
+                cur = conn.execute("SELECT id FROM trends WHERE keyword = ? AND platform = ? ORDER BY id DESC LIMIT 1", (trend["keyword"], trend["platform"])).fetchone()
+                if cur:
+                    trigger_new_trend(cur[0], trend["keyword"], trend["platform"])
+        except Exception as e:
+            logger.warning(f"notif trigger trend failed: {e}")
         return cursor.rowcount > 0
     except Exception as e:
         logger.warning(f"Failed to store trend '{trend.get('keyword')}': {e}")
