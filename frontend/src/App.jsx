@@ -7,6 +7,7 @@ import Trends from './pages/Trends'
 import Planner from './pages/Planner'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
+import Saved from './pages/Saved'
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/intelligence" element={<Intelligence />} />
           <Route path="/trends" element={<Trends />} />
+          <Route path="/saved" element={<Saved />} />
           <Route path="/planner" element={<Planner />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />

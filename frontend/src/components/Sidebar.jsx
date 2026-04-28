@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, TrendingUp, Newspaper, Flame, Calendar, Mail, Settings } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, Newspaper, Flame, Bookmark, Calendar, Mail, Settings } from 'lucide-react'
 
 const links = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
   { to: '/intelligence', icon: Newspaper, label: 'Inteligencia' },
   { to: '/trends', icon: Flame, label: 'Tendencias' },
+  { to: '/saved', icon: Bookmark, label: 'Guardados' },
   { to: '/planner', icon: Calendar, label: 'Parrilla' },
   { to: '/reports', icon: Mail, label: 'Reportes' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
