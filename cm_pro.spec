@@ -48,6 +48,8 @@ hiddenimports = [
     "backend.routers.auto_publish_router",
     "backend.routers.competitors_router",
     "backend.routers.templates_router",
+    "backend.routers.summit_router",
+    "backend.services.summit",
     "backend.services.auto_publish",
     "backend.services.competitors",
     "backend.services.templates",
