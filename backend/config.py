@@ -120,6 +120,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "linkedin": True,
     },
     "custom_metrics": [],
+    "auto_sync_on_open": False,
+    "auto_sync_threshold_hours": 12,
 }
 
 

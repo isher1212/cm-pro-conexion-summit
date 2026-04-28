@@ -505,6 +505,26 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         conn.commit()
     except Exception:
         pass
+    # Phase 18 migration
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sync_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                status TEXT NOT NULL DEFAULT 'running',
+                progress_pct INTEGER DEFAULT 0,
+                current_step TEXT DEFAULT '',
+                step_index INTEGER DEFAULT 0,
+                total_steps INTEGER DEFAULT 0,
+                results_json TEXT DEFAULT '{}',
+                error_message TEXT,
+                cancelled INTEGER DEFAULT 0,
+                started_at TEXT NOT NULL,
+                finished_at TEXT
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 _conn: sqlite3.Connection | None = None
