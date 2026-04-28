@@ -18,6 +18,7 @@ from backend.routers.library_router import router as library_router
 from backend.routers.ai_usage_router import router as ai_usage_router
 from backend.routers.notifications_router import router as notifications_router
 from backend.routers.auto_publish_router import router as auto_publish_router
+from backend.routers.competitors_router import router as competitors_router
 from backend.services.intelligence import run_intelligence_cycle
 from backend.services.trends import run_trends_cycle
 from backend.services.reports import (
@@ -145,6 +146,7 @@ app.include_router(library_router, prefix="/api")
 app.include_router(ai_usage_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
 app.include_router(auto_publish_router, prefix="/api")
+app.include_router(competitors_router, prefix="/api")
 
 _FRONTEND_DIST = get_frontend_dist()
 if _FRONTEND_DIST.exists():
