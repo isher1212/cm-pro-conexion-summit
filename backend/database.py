@@ -439,6 +439,72 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         conn.commit()
     except Exception:
         pass
+    # Phase 16 migrations
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS brand_profile (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                tagline TEXT,
+                mission TEXT,
+                vision TEXT,
+                values_text TEXT,
+                tone TEXT,
+                style_guide TEXT,
+                primary_color TEXT,
+                secondary_color TEXT,
+                accent_color TEXT,
+                font_primary TEXT,
+                font_secondary TEXT,
+                logo_url TEXT,
+                target_audience TEXT,
+                differentiators TEXT,
+                avoid_topics TEXT,
+                website TEXT,
+                instagram TEXT,
+                tiktok TEXT,
+                linkedin TEXT,
+                youtube TEXT,
+                active INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS team_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT,
+                role TEXT DEFAULT 'editor',
+                avatar_url TEXT,
+                phone TEXT,
+                notes TEXT,
+                active INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS integrations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                config_json TEXT DEFAULT '{}',
+                enabled INTEGER DEFAULT 0,
+                connected_at TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 _conn: sqlite3.Connection | None = None
