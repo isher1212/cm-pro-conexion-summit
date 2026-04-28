@@ -198,8 +198,9 @@ export default function Intelligence() {
       const res = await fetch(`/api/intelligence/articles?${params}`)
       if (!res.ok) throw new Error('Error al cargar artículos')
       const data = await res.json()
-      setArticles(data.articles)
-      setTotal(data.total)
+      const arr = Array.isArray(data) ? data : (data.articles || [])
+      setArticles(arr)
+      setTotal(Array.isArray(data) ? data.length : (data.total ?? arr.length))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -234,9 +235,9 @@ export default function Intelligence() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Inteligencia LATAM</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Radar de Noticias</h1>
           <p className="text-gray-500 text-sm">
-            {total > 0 ? `${total} artículos · actualizado automáticamente cada 6 horas` : 'Noticias de innovación y emprendimiento'}
+            {total > 0 ? `${total} artículos · actualizado automáticamente cada 6 horas` : 'Noticias de innovación y emprendimiento en LATAM'}
           </p>
         </div>
         <button

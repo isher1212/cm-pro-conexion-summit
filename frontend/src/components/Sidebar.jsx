@@ -6,7 +6,7 @@ const links = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/summit', icon: Trophy, label: 'Conexión Summit' },
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
-  { to: '/intelligence', icon: Newspaper, label: 'Inteligencia' },
+  { to: '/intelligence', icon: Newspaper, label: 'Radar Noticias' },
   { to: '/trends', icon: Flame, label: 'Tendencias' },
   { to: '/saved', icon: Bookmark, label: 'Guardados' },
   { to: '/planner', icon: Calendar, label: 'Parrilla' },
