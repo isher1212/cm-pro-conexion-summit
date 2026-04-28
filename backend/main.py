@@ -12,6 +12,7 @@ from backend.routers.trends_router import router as trends_router
 from backend.routers.analytics_router import router as analytics_router
 from backend.routers.planner_router import router as planner_router
 from backend.routers.reports_router import router as reports_router
+from backend.routers.image_router import router as image_router
 from backend.services.intelligence import run_intelligence_cycle
 from backend.services.trends import run_trends_cycle
 from backend.services.reports import (
@@ -102,6 +103,7 @@ app.include_router(trends_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(planner_router, prefix="/api")
 app.include_router(reports_router, prefix="/api")
+app.include_router(image_router, prefix="/api")
 
 _FRONTEND_DIST = get_frontend_dist()
 if _FRONTEND_DIST.exists():

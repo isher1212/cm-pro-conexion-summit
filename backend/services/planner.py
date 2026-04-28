@@ -53,8 +53,8 @@ def store_proposal(conn: sqlite3.Connection, proposal: dict) -> None:
     try:
         conn.execute(
             """INSERT INTO content_proposals
-               (topic, format, platform, suggested_date, caption_draft, hashtags, status, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               (topic, format, platform, suggested_date, caption_draft, hashtags, status, created_at, image_urls, video_script)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 proposal["topic"],
                 proposal.get("format", ""),
@@ -64,6 +64,8 @@ def store_proposal(conn: sqlite3.Connection, proposal: dict) -> None:
                 proposal.get("hashtags", ""),
                 proposal.get("status", "proposed"),
                 proposal.get("created_at", datetime.now().isoformat()),
+                proposal.get("image_urls", "[]"),
+                proposal.get("video_script", ""),
             ),
         )
         conn.commit()
@@ -97,7 +99,7 @@ def update_proposal_status(conn: sqlite3.Connection, proposal_id: int, status: s
 
 
 def update_proposal(conn: sqlite3.Connection, proposal_id: int, updates: dict) -> None:
-    allowed = {"caption_draft", "suggested_date", "hashtags", "format", "platform", "topic"}
+    allowed = {"caption_draft", "suggested_date", "hashtags", "format", "platform", "topic", "image_urls", "video_script"}
     fields = {k: v for k, v in updates.items() if k in allowed}
     if not fields:
         return
