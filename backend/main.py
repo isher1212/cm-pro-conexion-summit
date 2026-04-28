@@ -27,6 +27,7 @@ from backend.routers.integrations_router import router as integrations_router
 from backend.routers.system_router import router as system_router
 from backend.routers.dashboard_router import router as dashboard_router
 from backend.routers.sync_router import router as sync_router
+from backend.routers.cleanup_router import router as cleanup_router
 from backend.services.intelligence import run_intelligence_cycle
 from backend.services.trends import run_trends_cycle
 from backend.services.reports import (
@@ -116,6 +117,15 @@ def _schedule_auto_publish():
         logging.warning(f"auto_publish job failed: {e}")
 
 
+def _schedule_cleanup():
+    try:
+        from backend.services.cleanup import run_cleanup
+        run_cleanup(dry_run=False)
+    except Exception as e:
+        import logging
+        logging.warning(f"cleanup job failed: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     get_db()
@@ -133,6 +143,8 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(_schedule_monthly_report, trigger="cron", day=mday, hour=mhour, id="monthly_report", replace_existing=True)
     scheduler.add_job(_schedule_weekly_intelligence, trigger="cron", day_of_week="mon", hour=7, minute=30, id="weekly_intelligence", replace_existing=True)
     scheduler.add_job(_schedule_auto_publish, trigger="cron", minute=0, id="auto_publish", replace_existing=True)
+    cleanup_hour = load_config().get("cleanup_run_hour", 3)
+    scheduler.add_job(_schedule_cleanup, trigger="cron", hour=cleanup_hour, minute=15, id="daily_cleanup", replace_existing=True)
 
     start_scheduler()
     yield
@@ -163,6 +175,7 @@ app.include_router(integrations_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
+app.include_router(cleanup_router, prefix="/api")
 
 _FRONTEND_DIST = get_frontend_dist()
 if _FRONTEND_DIST.exists():

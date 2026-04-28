@@ -14,28 +14,52 @@ router = APIRouter()
 
 
 @router.get("/intelligence/articles")
-def get_articles(limit: int = 50, category: str = "", search: str = "", sort: str = "recent"):
+def get_articles(
+    limit: int = 50, category: str = "", search: str = "", sort: str = "recent",
+    from_date: str = "", to_date: str = "", view: str = "active",
+):
     config = load_config()
     age_days = config.get("max_articles_age_days", 30)
     conn = get_db()
-    query = """SELECT id, title, title_es, source, url, summary, relevance, relevance_score, category, fetched_at
-               FROM articles
-               WHERE fetched_at >= datetime('now', ?)"""
-    params: list = [f"-{age_days} days"]
+
+    query = """SELECT id, title, title_es, source, url, summary, relevance, relevance_score, category, fetched_at,
+                      COALESCE(discarded, 0) as discarded
+               FROM articles WHERE 1=1"""
+    params = []
+
+    if from_date:
+        query += " AND fetched_at >= ?"
+        params.append(from_date)
+    elif view != "all":
+        query += " AND fetched_at >= datetime('now', ?)"
+        params.append(f"-{age_days} days")
+    if to_date:
+        query += " AND fetched_at <= ?"
+        params.append(to_date + " 23:59:59")
+
+    if view == "active":
+        query += " AND (discarded IS NULL OR discarded = 0)"
+    elif view == "discarded":
+        query += " AND discarded = 1"
+    elif view == "saved":
+        query += " AND url IN (SELECT url FROM saved_items WHERE item_type = 'article')"
+
     if category:
         query += " AND category = ?"
         params.append(category)
     if search:
         query += " AND (title LIKE ? OR title_es LIKE ? OR summary LIKE ?)"
-        params += [f"%{search}%", f"%{search}%", f"%{search}%"]
+        params += [f"%{search}%"] * 3
+
     if sort == "relevance":
         query += " ORDER BY relevance_score DESC, fetched_at DESC"
     else:
         query += " ORDER BY fetched_at DESC"
     query += " LIMIT ?"
-    params.append(min(limit, 200))
+    params.append(min(limit, 500))
+
     rows = conn.execute(query, params).fetchall()
-    cols = ["id", "title", "title_es", "source", "url", "summary", "relevance", "relevance_score", "category", "fetched_at"]
+    cols = ["id", "title", "title_es", "source", "url", "summary", "relevance", "relevance_score", "category", "fetched_at", "discarded"]
     return [dict(zip(cols, r)) for r in rows]
 
 
@@ -138,6 +162,35 @@ COMO_PROMOVERLO: [cómo mostrarlo en redes/la marca, máx 2 líneas]"""
     except Exception as e:
         logger.warning(f"analyze_article failed: {e}")
         return {"error": "No se pudo generar el análisis"}
+
+
+@router.post("/intelligence/articles/{article_id}/discard")
+def discard_article(article_id: int):
+    from datetime import datetime
+    conn = get_db()
+    conn.execute("UPDATE articles SET discarded = 1, discarded_at = ? WHERE id = ?",
+                 (datetime.now().isoformat(), article_id))
+    conn.commit()
+    return {"status": "ok"}
+
+
+@router.post("/intelligence/articles/{article_id}/restore")
+def restore_article(article_id: int):
+    conn = get_db()
+    conn.execute("UPDATE articles SET discarded = 0, discarded_at = NULL WHERE id = ?", (article_id,))
+    conn.commit()
+    return {"status": "ok"}
+
+
+@router.get("/intelligence/archive-by-month")
+def archive_by_month():
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT substr(fetched_at, 1, 7) AS month, COUNT(*) as count
+           FROM articles WHERE COALESCE(discarded, 0) = 0
+           GROUP BY month ORDER BY month DESC LIMIT 24"""
+    ).fetchall()
+    return [{"month": r[0], "count": r[1]} for r in rows]
 
 
 @router.post("/intelligence/reprocess")

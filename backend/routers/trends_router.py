@@ -10,21 +10,34 @@ logger = logging.getLogger(__name__)
 
 @router.get("/trends")
 def list_trends(
-    limit: int = Query(20, ge=1, le=100),
-    platform: str = Query(""),
+    limit: int = 20, platform: str = "",
+    from_date: str = "", to_date: str = "", view: str = "active",
 ):
     conn = get_db()
-    query = "SELECT id, keyword, platform, description, why_trending, how_to_apply, post_idea, source_url, fetched_at FROM trends"
-    params: list = []
+    query = """SELECT id, keyword, platform, description, why_trending, how_to_apply, post_idea,
+                      source_url, fetched_at, COALESCE(discarded, 0) as discarded
+               FROM trends WHERE 1=1"""
+    params = []
+    if from_date:
+        query += " AND fetched_at >= ?"
+        params.append(from_date)
+    if to_date:
+        query += " AND fetched_at <= ?"
+        params.append(to_date + " 23:59:59")
+    if view == "active":
+        query += " AND (discarded IS NULL OR discarded = 0)"
+    elif view == "discarded":
+        query += " AND discarded = 1"
+    elif view == "saved":
+        query += " AND keyword IN (SELECT title FROM saved_items WHERE item_type = 'trend')"
     if platform:
-        query += " WHERE platform = ?"
+        query += " AND platform = ?"
         params.append(platform)
     query += " ORDER BY fetched_at DESC LIMIT ?"
-    params.append(min(limit, 100))
+    params.append(min(limit, 500))
     rows = conn.execute(query, params).fetchall()
-    cols = ["id", "keyword", "platform", "description", "why_trending", "how_to_apply", "post_idea", "source_url", "fetched_at"]
-    trends = [dict(zip(cols, r)) for r in rows]
-    return {"trends": trends, "total": len(trends)}
+    cols = ["id", "keyword", "platform", "description", "why_trending", "how_to_apply", "post_idea", "source_url", "fetched_at", "discarded"]
+    return [dict(zip(cols, r)) for r in rows]
 
 
 @router.post("/trends/refresh")
@@ -141,6 +154,35 @@ def search_trends_manual(body: dict):
         except Exception as e:
             logger.warning(f"manual search store failed: {e}")
     return {"status": "ok", "new_trends": new_count}
+
+
+@router.post("/trends/{trend_id}/discard")
+def discard_trend(trend_id: int):
+    from datetime import datetime
+    conn = get_db()
+    conn.execute("UPDATE trends SET discarded = 1, discarded_at = ? WHERE id = ?",
+                 (datetime.now().isoformat(), trend_id))
+    conn.commit()
+    return {"status": "ok"}
+
+
+@router.post("/trends/{trend_id}/restore")
+def restore_trend(trend_id: int):
+    conn = get_db()
+    conn.execute("UPDATE trends SET discarded = 0, discarded_at = NULL WHERE id = ?", (trend_id,))
+    conn.commit()
+    return {"status": "ok"}
+
+
+@router.get("/trends/archive-by-month")
+def trends_archive():
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT substr(fetched_at, 1, 7) AS month, COUNT(*) as count
+           FROM trends WHERE COALESCE(discarded, 0) = 0
+           GROUP BY month ORDER BY month DESC LIMIT 24"""
+    ).fetchall()
+    return [{"month": r[0], "count": r[1]} for r in rows]
 
 
 @router.get("/trends/history")

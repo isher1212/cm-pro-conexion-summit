@@ -8,24 +8,38 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/library/images")
-def list_images(platform: str = "", search: str = "", limit: int = 100):
+def list_images(platform: str = "", search: str = "", limit: int = 100,
+               from_date: str = "", to_date: str = ""):
     conn = get_db()
-    query = "SELECT id, url, prompt, platform, aspect_ratio, model, resolution, proposal_id, created_at FROM image_library"
-    params: list = []
-    conditions = []
+    query = "SELECT id, url, prompt, platform, aspect_ratio, model, resolution, proposal_id, created_at FROM image_library WHERE 1=1"
+    params = []
     if platform:
-        conditions.append("platform = ?")
+        query += " AND platform = ?"
         params.append(platform)
     if search:
-        conditions.append("prompt LIKE ?")
+        query += " AND prompt LIKE ?"
         params.append(f"%{search}%")
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
+    if from_date:
+        query += " AND created_at >= ?"
+        params.append(from_date)
+    if to_date:
+        query += " AND created_at <= ?"
+        params.append(to_date + " 23:59:59")
     query += " ORDER BY created_at DESC LIMIT ?"
     params.append(min(limit, 500))
     rows = conn.execute(query, params).fetchall()
     cols = ["id", "url", "prompt", "platform", "aspect_ratio", "model", "resolution", "proposal_id", "created_at"]
     return [dict(zip(cols, r)) for r in rows]
+
+
+@router.get("/library/archive-by-month")
+def library_archive():
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT substr(created_at, 1, 7) AS month, COUNT(*) as count
+           FROM image_library GROUP BY month ORDER BY month DESC LIMIT 24"""
+    ).fetchall()
+    return [{"month": r[0], "count": r[1]} for r in rows]
 
 
 @router.delete("/library/images/{image_id}")
