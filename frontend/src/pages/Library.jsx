@@ -1,22 +1,27 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2, Edit2 } from 'lucide-react'
+import DateRangeFilter from '../components/DateRangeFilter'
+import HistoricalArchive from '../components/HistoricalArchive'
 
 export default function Library() {
   const [images, setImages] = useState([])
   const [platform, setPlatform] = useState('')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [dateRange, setDateRange] = useState({ preset: 'default', from: '', to: '' })
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
     if (platform) params.set('platform', platform)
     if (search) params.set('search', search)
+    if (dateRange.from) params.set('from_date', dateRange.from)
+    if (dateRange.to) params.set('to_date', dateRange.to)
     const res = await fetch('/api/library/images?' + params.toString())
     setImages(await res.json())
     setLoading(false)
-  }, [platform, search])
+  }, [platform, search, dateRange])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
@@ -30,6 +35,10 @@ export default function Library() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Galería de imágenes</h1>
       <p className="text-gray-500 text-sm mb-6">{images.length} imágenes generadas con IA</p>
+
+      <div className="mb-4">
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+      </div>
 
       <div className="flex gap-2 mb-4 flex-wrap items-center">
         <input value={search} onChange={e => setSearch(e.target.value)}
@@ -74,6 +83,13 @@ export default function Library() {
           ))}
         </div>
       )}
+
+      <div className="mt-6">
+        <HistoricalArchive
+          endpoint="/api/library/archive-by-month"
+          onSelectMonth={month => setDateRange({ preset: 'custom', from: `${month}-01`, to: `${month}-31` })}
+        />
+      </div>
     </div>
   )
 }

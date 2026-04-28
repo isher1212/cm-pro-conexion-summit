@@ -1,21 +1,31 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ExternalLink, Trash2 } from 'lucide-react'
+import DateRangeFilter from '../components/DateRangeFilter'
+
+const TABS = [
+  { val: 'all', label: 'Todos', icon: '📚' },
+  { val: 'article', label: 'Artículos', icon: '📄' },
+  { val: 'trend', label: 'Tendencias', icon: '🔥' },
+]
 
 export default function Saved() {
   const [items, setItems] = useState([])
-  const [filter, setFilter] = useState('all')
+  const [tab, setTab] = useState('all')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [dateRange, setDateRange] = useState({ preset: 'default', from: '', to: '' })
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
-    if (filter !== 'all') params.set('item_type', filter)
+    if (tab !== 'all') params.set('item_type', tab)
     if (search) params.set('search', search)
+    if (dateRange.from) params.set('from_date', dateRange.from)
+    if (dateRange.to) params.set('to_date', dateRange.to)
     const res = await fetch('/api/saved?' + params.toString())
     setItems(await res.json())
     setLoading(false)
-  }, [filter, search])
+  }, [tab, search, dateRange])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
@@ -29,20 +39,23 @@ export default function Saved() {
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Guardados</h1>
       <p className="text-gray-500 text-sm mb-6">{items.length} ítems guardados para tu reporte mensual</p>
 
+      <div className="flex gap-1 mb-4">
+        {TABS.map(t => (
+          <button key={t.val} onClick={() => setTab(t.val)}
+            className={`text-xs px-3 py-1.5 rounded-lg border ${tab === t.val ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex gap-2 mb-4 flex-wrap items-center">
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Buscar guardados..."
           className="flex-1 max-w-xs border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-        {[
-          { val: 'all', label: 'Todos' },
-          { val: 'article', label: '📄 Artículos' },
-          { val: 'trend', label: '🔥 Tendencias' },
-        ].map(({ val, label }) => (
-          <button key={val} onClick={() => setFilter(val)}
-            className={`text-sm px-4 py-2 rounded-lg border ${filter === val ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            {label}
-          </button>
-        ))}
+      </div>
+
+      <div className="mb-4">
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
       </div>
 
       {loading ? (
