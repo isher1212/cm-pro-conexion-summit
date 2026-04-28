@@ -124,3 +124,99 @@ def instagram_sync():
             pass
 
     return {"status": "ok", "metrics_imported": metrics_imported, "posts_imported": posts_imported}
+
+
+@router.get("/analytics/heatmap")
+def engagement_heatmap(days: int = 90):
+    """Heatmap 7x24 con engagement promedio por día_semana × hora."""
+    from datetime import datetime as dt
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT published_at, engagement_rate FROM posts
+           WHERE published_at >= datetime('now', ?) AND engagement_rate IS NOT NULL""",
+        (f"-{days} days",),
+    ).fetchall()
+    grid = [[{"sum": 0.0, "count": 0} for _ in range(24)] for _ in range(7)]
+    for pub, eng in rows:
+        if not pub:
+            continue
+        try:
+            d = dt.fromisoformat(pub.replace("Z", "+00:00"))
+        except Exception:
+            try:
+                d = dt.fromisoformat(pub)
+            except Exception:
+                continue
+        wd = d.weekday()
+        h = d.hour
+        if 0 <= wd < 7 and 0 <= h < 24:
+            grid[wd][h]["sum"] += float(eng or 0)
+            grid[wd][h]["count"] += 1
+    days_labels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+    result = []
+    for wd in range(7):
+        for h in range(24):
+            cell = grid[wd][h]
+            avg = cell["sum"] / cell["count"] if cell["count"] else 0
+            result.append({
+                "day": days_labels[wd],
+                "day_index": wd,
+                "hour": h,
+                "avg_engagement": round(avg, 2),
+                "samples": cell["count"],
+            })
+    return result
+
+
+@router.get("/analytics/compare-months")
+def compare_months():
+    """Comparativa: mes actual vs mes anterior en KPIs principales."""
+    from datetime import datetime as dt, timedelta
+    conn = get_db()
+    today = dt.now()
+    cur_start = today.replace(day=1)
+    prev_end = cur_start - timedelta(days=1)
+    prev_start = prev_end.replace(day=1)
+
+    def query_block(start, end_exclusive):
+        s = start.isoformat()
+        e = end_exclusive.isoformat()
+        posts = conn.execute(
+            """SELECT COUNT(*), AVG(reach), AVG(engagement_rate), SUM(likes), SUM(comments)
+               FROM posts WHERE published_at >= ? AND published_at < ?""",
+            (s, e),
+        ).fetchone()
+        followers = conn.execute(
+            """SELECT followers FROM metrics WHERE recorded_at < ? ORDER BY recorded_at DESC LIMIT 1""",
+            (e,),
+        ).fetchone()
+        return {
+            "posts": posts[0] or 0,
+            "avg_reach": round(posts[1] or 0, 1),
+            "avg_engagement": round(posts[2] or 0, 2),
+            "total_likes": posts[3] or 0,
+            "total_comments": posts[4] or 0,
+            "followers": followers[0] if followers else 0,
+        }
+
+    cur = query_block(cur_start, today + timedelta(days=1))
+    prev = query_block(prev_start, cur_start)
+
+    def delta_pct(a, b):
+        if not b:
+            return 0
+        return round(((a - b) / b) * 100, 1)
+
+    return {
+        "current_month": cur_start.strftime("%Y-%m"),
+        "previous_month": prev_start.strftime("%Y-%m"),
+        "current": cur,
+        "previous": prev,
+        "deltas": {
+            "posts": cur["posts"] - prev["posts"],
+            "avg_reach_pct": delta_pct(cur["avg_reach"], prev["avg_reach"]),
+            "avg_engagement_pct": delta_pct(cur["avg_engagement"], prev["avg_engagement"]),
+            "total_likes_pct": delta_pct(cur["total_likes"], prev["total_likes"]),
+            "followers_pct": delta_pct(cur["followers"], prev["followers"]),
+        },
+    }

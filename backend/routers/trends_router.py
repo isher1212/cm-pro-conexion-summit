@@ -141,3 +141,26 @@ def search_trends_manual(body: dict):
         except Exception as e:
             logger.warning(f"manual search store failed: {e}")
     return {"status": "ok", "new_trends": new_count}
+
+
+@router.get("/trends/history")
+def trends_history(weeks: int = 12, platform: str = ""):
+    """Histórico de tendencias agrupado por (keyword, platform, fecha)."""
+    from collections import defaultdict
+    conn = get_db()
+    query = """SELECT keyword, platform, fetched_at FROM trends
+               WHERE fetched_at >= datetime('now', ?)"""
+    params = [f"-{weeks * 7} days"]
+    if platform:
+        query += " AND platform = ?"
+        params.append(platform)
+    query += " ORDER BY fetched_at"
+    rows = conn.execute(query, params).fetchall()
+    bucket = defaultdict(int)
+    for kw, plat, fa in rows:
+        wk = fa[:10] if fa else ""
+        bucket[(kw, plat, wk)] += 1
+    return [
+        {"keyword": k[0], "platform": k[1], "date": k[2], "count": v}
+        for k, v in bucket.items()
+    ]
