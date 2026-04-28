@@ -1,14 +1,49 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { TrendingUp, AlertCircle, Calendar as CalendarIcon, ArrowRight, Sparkles, Eye, Users, ChevronRight } from 'lucide-react'
+import { TrendingUp, AlertCircle, Calendar as CalendarIcon, ArrowRight, Sparkles, Eye, Users, ChevronRight, RotateCw } from 'lucide-react'
 
 export default function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+  const [lastSync, setLastSync] = useState(null)
 
   useEffect(() => {
     fetch('/api/dashboard/overview').then(r => r.json()).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    function loadStatus() {
+      fetch('/api/sync/status').then(r => r.json()).then(d => {
+        setLastSync(d.job)
+        setSyncing(!!d.active)
+      }).catch(() => {})
+    }
+    loadStatus()
+    const id = setInterval(loadStatus, 5000)
+    return () => clearInterval(id)
+  }, [])
+
+  async function startSync() {
+    setSyncing(true)
+    try {
+      await fetch('/api/sync/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    } catch {}
+    // Refrescar dashboard luego de un rato
+    setTimeout(() => {
+      fetch('/api/dashboard/overview').then(r => r.json()).then(setData).catch(() => {})
+    }, 90000)
+  }
+
+  function relativeTime(iso) {
+    if (!iso) return 'nunca'
+    const d = new Date(iso)
+    const diff = Math.floor((Date.now() - d.getTime()) / 1000)
+    if (diff < 60) return 'hace un momento'
+    if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`
+    if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`
+    return `hace ${Math.floor(diff / 86400)} días`
+  }
 
   if (loading) return <p className="text-sm text-gray-400 p-6">Cargando dashboard...</p>
   if (!data) return <p className="text-sm text-gray-400 p-6">Error al cargar.</p>
@@ -26,6 +61,24 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{greeting} 👋</h1>
         <p className="text-gray-500 text-sm mt-1">Esto es lo que pasa hoy en Conexión Summit</p>
       </div>
+
+      <section className="bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl p-6 text-white shadow-lg">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">Sincronización maestra</h2>
+            <p className="text-sm text-indigo-100">
+              {syncing
+                ? 'Sincronizando ahora... mira el progreso arriba.'
+                : `Última sincronización: ${relativeTime(lastSync?.finished_at || lastSync?.started_at)}`}
+            </p>
+          </div>
+          <button onClick={startSync} disabled={syncing}
+            className="bg-white text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2 shadow">
+            <RotateCw size={15} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Sincronizando...' : 'Sincronizar todo'}
+          </button>
+        </div>
+      </section>
 
       {data.metrics.length > 0 && (
         <section>

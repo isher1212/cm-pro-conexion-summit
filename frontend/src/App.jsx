@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
+import SyncBanner from './components/SyncBanner'
 import Dashboard from './pages/Dashboard'
 import Overview from './pages/Overview'
 import Analytics from './pages/Analytics'
@@ -21,6 +22,7 @@ import ImageEditor from './pages/ImageEditor'
 export default function App() {
   return (
     <BrowserRouter>
+      <SyncBanner />
       <Layout>
         <Routes>
           <Route path="/summit" element={<Summit />} />
