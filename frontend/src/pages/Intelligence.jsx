@@ -4,6 +4,40 @@ import { Search, RefreshCw, ExternalLink, Tag } from 'lucide-react'
 const CATEGORIES = ['Todas', 'Colombia', 'LATAM', 'Global']
 
 function ArticleCard({ article }) {
+  const [converting, setConverting] = useState(false)
+  const [converted, setConverted] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleConvert() {
+    setConverting(true)
+    setError('')
+    try {
+      const res = await fetch('/api/intelligence/to-proposal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: article.title,
+          summary: article.summary || '',
+          source: article.source || '',
+        }),
+      })
+      if (!res.ok) {
+        setError('Error al generar propuesta.')
+        return
+      }
+      const data = await res.json()
+      if (data.error) {
+        setError(data.error)
+      } else {
+        setConverted(true)
+      }
+    } catch {
+      setError('Error de conexión.')
+    } finally {
+      setConverting(false)
+    }
+  }
+
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-3 mb-2">
@@ -48,6 +82,19 @@ function ArticleCard({ article }) {
           </p>
         </div>
       )}
+
+      {/* Convert to proposal */}
+      <div className="pt-2 border-t border-gray-50 mt-2">
+        {converted ? (
+          <p className="text-xs text-green-600 font-medium">✓ Propuesta enviada a Parrilla</p>
+        ) : (
+          <button onClick={handleConvert} disabled={converting}
+            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50">
+            {converting ? '⏳ Generando propuesta...' : '📅 Convertir en propuesta'}
+          </button>
+        )}
+        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      </div>
     </div>
   )
 }
