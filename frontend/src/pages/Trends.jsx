@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import DateRangeFilter from '../components/DateRangeFilter'
 import ViewToggle from '../components/ViewToggle'
 import HistoricalArchive from '../components/HistoricalArchive'
+import ErrorBoundary from '../components/ErrorBoundary'
 
 const PLATFORMS = ['Todas', 'Google Trends', 'YouTube', 'TikTok', 'LinkedIn']
 
@@ -429,9 +430,9 @@ export default function Trends() {
       const res = await fetch(`/api/trends?${params}`)
       if (!res.ok) throw new Error('Error al cargar tendencias')
       const data = await res.json()
-      const arr = Array.isArray(data) ? data : (data.trends || [])
+      const arr = Array.isArray(data) ? data : (data && Array.isArray(data.trends) ? data.trends : [])
       setTrends(arr)
-      setTotal(Array.isArray(data) ? data.length : (data.total ?? arr.length))
+      setTotal(arr.length)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -581,10 +582,12 @@ export default function Trends() {
         </div>
       )}
 
-      {!loading && trends.length > 0 && (
+      {!loading && Array.isArray(trends) && trends.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2">
-          {trends.map(trend => (
-            <TrendCard key={trend.id} trend={trend} fetchAll={fetchTrends} />
+          {trends.filter(t => t && (t.id !== undefined && t.id !== null)).map(trend => (
+            <ErrorBoundary key={trend.id}>
+              <TrendCard trend={trend} fetchAll={fetchTrends} />
+            </ErrorBoundary>
           ))}
         </div>
       )}
