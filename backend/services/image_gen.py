@@ -72,13 +72,21 @@ def _create_task(
     aspect_ratio: str,
     api_key: str,
     image_input_urls: list[str] | None = None,
+    resolution: str = "1K",
 ) -> str | None:
-    inp: dict = {
-        "prompt": prompt,
-        "image_size": aspect_ratio,
-    }
-    if image_input_urls:
-        inp["image_input"] = image_input_urls
+    inp: dict
+    if model == "nano-banana-2":
+        inp = {
+            "prompt": prompt,
+            "image_input": image_input_urls or [],
+            "aspect_ratio": aspect_ratio,
+            "resolution": resolution,
+            "output_format": "png",
+        }
+    else:
+        inp = {"prompt": prompt, "image_size": aspect_ratio}
+        if image_input_urls:
+            inp["image_input"] = image_input_urls
     body: dict = {"model": model, "input": inp}
     try:
         resp = httpx.post(
@@ -100,7 +108,7 @@ def _create_task(
         return None
 
 
-def _poll_task(task_id: str, api_key: str, timeout: int = 120) -> dict:
+def _poll_task(task_id: str, api_key: str, timeout: int = 240) -> dict:
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -127,7 +135,7 @@ def generate_images(
     platform: str,
     caption: str,
     api_key: str,
-    model: str = "google/nano-banana",
+    model: str = "nano-banana-2",
     resolution: str = "1K",
     extra_specs: str = "",
     brand_context: str = "",
@@ -136,13 +144,15 @@ def generate_images(
     custom_prompt: str | None = None,
 ) -> list[str]:
     """Generate n images via Kie AI. Pass image_input_urls for image-to-image mode."""
-    if model in ("nano-banana", "nano-banana-2", "google/nano-banana-2"):
+    if model in ("google/nano-banana-2", "nanobanana2", "nano-banana-pro"):
+        model = "nano-banana-2"
+    elif model in ("nano-banana", "google/nano-banana-flash"):
         model = "google/nano-banana"
     aspect_ratio = get_aspect_ratio(platform)
     all_urls: list[str] = []
     prompt = custom_prompt or build_image_prompt(topic, platform, caption, brand_context, extra_specs)
     for _ in range(n):
-        task_id = _create_task(prompt, model, aspect_ratio, api_key, image_input_urls)
+        task_id = _create_task(prompt, model, aspect_ratio, api_key, image_input_urls, resolution)
         if not task_id:
             continue
         data = _poll_task(task_id, api_key)
