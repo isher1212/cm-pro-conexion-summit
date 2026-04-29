@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 DATA_TABLES_TO_CLEAR = [
     "articles", "trends", "content_proposals", "saved_items", "metrics", "posts", "events",
     "report_log", "image_library", "ai_usage_log", "notifications", "competitors", "competitor_posts",
-    "copy_templates", "sentiment_analyses", "speakers", "sponsors", "key_people",
+    "sentiment_analyses", "speakers", "sponsors", "key_people",
     "summit_milestones", "event_goals", "event_editions", "post_comments",
 ]
 

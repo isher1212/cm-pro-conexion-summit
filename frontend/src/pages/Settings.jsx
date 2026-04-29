@@ -485,15 +485,18 @@ function ManualReportButton({ endpoint, label }) {
 }
 
 function ResetBrandPanel() {
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [confirm, setConfirm] = useState('')
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState('')
 
+  const CONFIRM_PHRASE = 'QUIERO CAMBIAR DE MARCA'
+
   async function run() {
-    if (!name || confirm !== 'REINICIAR') {
-      setResult('Escribe REINICIAR para confirmar.')
+    if (!name || confirm !== CONFIRM_PHRASE) {
+      setResult(`Escribe exactamente "${CONFIRM_PHRASE}" para confirmar.`)
       return
     }
     setRunning(true); setResult('')
@@ -509,23 +512,43 @@ function ResetBrandPanel() {
     finally { setRunning(false) }
   }
 
+  if (!showAdvanced) {
+    return (
+      <button type="button" onClick={() => setShowAdvanced(true)}
+        className="text-xs text-gray-400 hover:text-gray-600 underline">
+        ⚠ Opciones avanzadas (cambio de marca)
+      </button>
+    )
+  }
+
   return (
-    <div>
+    <div className="space-y-3">
+      <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1">
+        <p className="font-semibold text-gray-700">Qué pasa cuando reinicias:</p>
+        <p>✗ <span className="text-red-600">Se borra:</span> noticias, tendencias, propuestas, guardados, métricas, imágenes, speakers, sponsors, hitos, metas, referentes, log de uso IA</p>
+        <p>✓ <span className="text-green-700">Se preserva:</span> API keys (OpenAI, Kie AI, Meta, etc.), horarios, integraciones, plantillas de copy, pilares de contenido y todos los parámetros técnicos</p>
+      </div>
       {!open ? (
-        <button type="button" onClick={() => setOpen(true)}
-          className="text-sm text-red-600 hover:text-red-800 font-medium">
-          Quiero reiniciar el sistema para otra marca →
-        </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => setOpen(true)}
+            className="text-sm text-red-600 hover:text-red-800 font-medium">
+            Quiero reiniciar el sistema para otra marca →
+          </button>
+          <button type="button" onClick={() => setShowAdvanced(false)}
+            className="text-xs text-gray-400 hover:text-gray-600">
+            (cancelar)
+          </button>
+        </div>
       ) : (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
           <input value={name} onChange={e => setName(e.target.value)}
             placeholder="Nombre de la nueva marca"
             className="w-full border border-red-200 rounded-lg px-3 py-2 text-sm" />
           <input value={confirm} onChange={e => setConfirm(e.target.value)}
-            placeholder="Escribe REINICIAR para confirmar"
+            placeholder={`Escribe "${CONFIRM_PHRASE}" para confirmar`}
             className="w-full border border-red-200 rounded-lg px-3 py-2 text-sm" />
           <div className="flex gap-2">
-            <button type="button" onClick={run} disabled={running || !name || confirm !== 'REINICIAR'}
+            <button type="button" onClick={run} disabled={running || !name || confirm !== CONFIRM_PHRASE}
               className="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-50">
               {running ? 'Reiniciando...' : 'Reiniciar todo'}
             </button>
