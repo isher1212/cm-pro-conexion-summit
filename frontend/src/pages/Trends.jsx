@@ -428,8 +428,9 @@ export default function Trends() {
       const res = await fetch(`/api/trends?${params}`)
       if (!res.ok) throw new Error('Error al cargar tendencias')
       const data = await res.json()
-      setTrends(data.trends)
-      setTotal(data.total)
+      const arr = Array.isArray(data) ? data : (data.trends || [])
+      setTrends(arr)
+      setTotal(Array.isArray(data) ? data.length : (data.total ?? arr.length))
     } catch (e) {
       setError(e.message)
     } finally {
