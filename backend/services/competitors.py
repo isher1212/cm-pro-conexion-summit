@@ -58,6 +58,18 @@ def update_competitor(competitor_id: int, data: dict) -> bool:
     return True
 
 
+def get_competitor(competitor_id: int):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT id, name, scope, category, instagram_handle, linkedin_handle, website, notes, active FROM competitors WHERE id = ?",
+        (competitor_id,),
+    ).fetchone()
+    if not row:
+        return None
+    cols = ["id", "name", "scope", "category", "instagram_handle", "linkedin_handle", "website", "notes", "active"]
+    return dict(zip(cols, row))
+
+
 def delete_competitor(competitor_id: int):
     conn = get_db()
     conn.execute("DELETE FROM competitor_posts WHERE competitor_id = ?", (competitor_id,))

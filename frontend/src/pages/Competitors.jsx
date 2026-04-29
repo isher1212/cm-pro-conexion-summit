@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, ExternalLink, Sparkles } from 'lucide-react'
+import { Plus, Trash2, ExternalLink, Sparkles, Activity, Zap } from 'lucide-react'
 
 const SCOPES = [
   { val: 'national', label: 'Nacional' },
@@ -21,6 +21,16 @@ export default function Competitors() {
   const [suggestCategory, setSuggestCategory] = useState('')
   const [suggestScope, setSuggestScope] = useState('national')
 
+  const [showPresets, setShowPresets] = useState(false)
+  const [presets, setPresets] = useState({ national: [], international: [] })
+  const [presetScope, setPresetScope] = useState('national')
+
+  useEffect(() => {
+    fetch('/api/competitors/presets').then(r => r.json()).then(d => {
+      setPresets({ national: d.national || [], international: d.international || [] })
+    }).catch(() => {})
+  }, [])
+
   async function fetchSuggestions() {
     setSuggesting(true); setSuggestions([])
     try {
@@ -39,10 +49,22 @@ export default function Competitors() {
       body: JSON.stringify({
         name: s.name, scope: suggestScope, category: s.category || '',
         instagram_handle: s.instagram_handle || '', linkedin_handle: s.linkedin_handle || '',
-        website: s.website || '', notes: s.why || '', active: true,
+        website: s.website || '', notes: s.why || s.notes || '', active: true,
       }),
     })
     setSuggestions(prev => prev.filter(x => x.name !== s.name))
+    fetchAll()
+  }
+
+  async function addPreset(p) {
+    await fetch('/api/competitors', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: p.name, scope: presetScope, category: p.category || '',
+        instagram_handle: p.instagram_handle || '', linkedin_handle: p.linkedin_handle || '',
+        website: p.website || '', notes: p.notes || '', active: true,
+      }),
+    })
     fetchAll()
   }
 
@@ -84,22 +106,67 @@ export default function Competitors() {
     setShowForm(true)
   }
 
+  const existingNames = new Set(items.map(i => i.name?.toLowerCase()))
+  const visiblePresets = (presets[presetScope] || []).filter(p => !existingNames.has(p.name?.toLowerCase()))
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <h1 className="text-2xl font-bold text-gray-900">Referentes</h1>
-        <div className="flex gap-2">
-          <button onClick={() => setShowSuggest(v => !v)}
-            className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={() => { setShowPresets(v => !v); setShowSuggest(false) }}
+            className="bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-medium px-3 py-2 rounded-lg flex items-center gap-1 border border-amber-200">
+            ⚡ Catálogo curado
+          </button>
+          <button onClick={() => { setShowSuggest(v => !v); setShowPresets(false) }}
+            className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-3 py-2 rounded-lg flex items-center gap-1">
             <Sparkles size={14} /> Sugerir con IA
           </button>
           <button onClick={() => { setShowForm(v => !v); setForm(EMPTY); setEditing(null) }}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
-            <Plus size={14} /> Agregar
+            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-3 py-2 rounded-lg flex items-center gap-1">
+            <Plus size={14} /> Manual
           </button>
         </div>
       </div>
       <p className="text-gray-500 text-sm mb-4">Marcas y referentes que vale la pena seguir e inspirarse ({items.length})</p>
+
+      {showPresets && (
+        <div className="bg-white border border-amber-100 rounded-xl p-4 mb-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-amber-700">⚡ Catálogo curado de referentes</h3>
+            <div className="flex gap-1">
+              {SCOPES.map(s => (
+                <button key={s.val} onClick={() => setPresetScope(s.val)}
+                  className={`text-xs px-2.5 py-1 rounded-lg border ${presetScope === s.val ? 'bg-amber-600 text-white border-amber-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">Lista pre-cargada de referentes relevantes para Conexión Summit. Click en "+ Agregar" para sumarlos a tu lista.</p>
+          {visiblePresets.length === 0 && <p className="text-xs text-gray-400">Ya agregaste todos los presets de esta categoría.</p>}
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {visiblePresets.map((p, i) => (
+              <div key={i} className="flex items-start justify-between gap-3 p-3 bg-amber-50/40 rounded-lg border border-amber-100/50">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">{p.name}</p>
+                  <p className="text-xs text-amber-700">{p.category}</p>
+                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">{p.notes}</p>
+                  <div className="flex gap-2 mt-1 text-xs text-gray-400 flex-wrap">
+                    {p.instagram_handle && <span>@{p.instagram_handle}</span>}
+                    {p.linkedin_handle && <span>· in/{p.linkedin_handle}</span>}
+                    {p.website && <span>· web</span>}
+                  </div>
+                </div>
+                <button onClick={() => addPreset(p)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap">
+                  + Agregar
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showSuggest && (
         <div className="bg-white border border-violet-100 rounded-xl p-4 mb-4 space-y-3">
@@ -119,7 +186,7 @@ export default function Competitors() {
             </button>
           </div>
           {suggestions.length > 0 && (
-            <div className="space-y-2 mt-3">
+            <div className="space-y-2 mt-3 max-h-80 overflow-y-auto">
               {suggestions.map((s, i) => (
                 <div key={i} className="flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
@@ -185,7 +252,7 @@ export default function Competitors() {
       )}
 
       <div className="space-y-3">
-        {items.length === 0 && <p className="text-sm text-gray-400">Aún no hay referentes. Agrégalos manualmente o pide sugerencias a la IA.</p>}
+        {items.length === 0 && <p className="text-sm text-gray-400">Aún no hay referentes. Usa el catálogo curado, sugerencias con IA o agrégalos manualmente.</p>}
         {items.map(it => <CompetitorCard key={it.id} item={it} onEdit={() => startEdit(it)} onDelete={() => del(it.id)} />)}
       </div>
     </div>
@@ -195,6 +262,8 @@ export default function Competitors() {
 function CompetitorCard({ item, onEdit, onDelete }) {
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [monitor, setMonitor] = useState(null)
+  const [monitoring, setMonitoring] = useState(false)
 
   async function analyze() {
     setLoading(true)
@@ -202,6 +271,16 @@ function CompetitorCard({ item, onEdit, onDelete }) {
       const r = await fetch(`/api/competitors/${item.id}/analyze`, { method: 'POST' })
       setAnalysis(await r.json())
     } finally { setLoading(false) }
+  }
+
+  async function runMonitor() {
+    setMonitoring(true); setMonitor(null)
+    try {
+      const r = await fetch(`/api/competitors/${item.id}/monitor`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      })
+      setMonitor(await r.json())
+    } finally { setMonitoring(false) }
   }
 
   return (
@@ -235,28 +314,82 @@ function CompetitorCard({ item, onEdit, onDelete }) {
           <button onClick={onDelete} className="text-red-300 hover:text-red-500"><Trash2 size={14} /></button>
         </div>
       </div>
-      <div className="pt-2 border-t border-gray-50 mt-2">
+      <div className="pt-2 border-t border-gray-50 mt-2 flex flex-wrap gap-3">
         <button onClick={analyze} disabled={loading}
           className="text-xs text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50 inline-flex items-center gap-1">
           <Sparkles size={12} /> {loading ? 'Analizando...' : 'Analizar con IA'}
         </button>
-        {analysis && !analysis.error && (
-          <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100 space-y-2">
-            {[
-              { key: 'que_hacen_bien', label: '✅ Qué hacen bien' },
-              { key: 'que_podemos_aplicar', label: '🎯 Qué podemos aplicar' },
-              { key: 'diferenciadores', label: '✨ Diferenciadores' },
-              { key: 'riesgos', label: '⚠️ Riesgos' },
-            ].map(({ key, label }) => analysis[key] ? (
-              <div key={key}>
-                <p className="text-xs font-medium text-indigo-700">{label}</p>
-                <p className="text-xs text-indigo-900">{analysis[key]}</p>
-              </div>
-            ) : null)}
-          </div>
-        )}
-        {analysis?.error && <p className="text-xs text-red-500 mt-2">{analysis.error}</p>}
+        <button onClick={runMonitor} disabled={monitoring}
+          className="text-xs text-violet-600 hover:text-violet-800 font-medium disabled:opacity-50 inline-flex items-center gap-1">
+          <Activity size={12} /> {monitoring ? 'Monitoreando...' : 'Monitorear redes con IA'}
+        </button>
       </div>
+
+      {analysis && !analysis.error && (
+        <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100 space-y-2">
+          {[
+            { key: 'que_hacen_bien', label: '✅ Qué hacen bien' },
+            { key: 'que_podemos_aplicar', label: '🎯 Qué podemos aplicar' },
+            { key: 'diferenciadores', label: '✨ Diferenciadores' },
+            { key: 'riesgos', label: '⚠ Riesgos' },
+          ].map(({ key, label }) => analysis[key] ? (
+            <div key={key}>
+              <p className="text-xs font-medium text-indigo-700">{label}</p>
+              <p className="text-xs text-indigo-900">{analysis[key]}</p>
+            </div>
+          ) : null)}
+        </div>
+      )}
+      {analysis?.error && <p className="text-xs text-red-500 mt-2">{analysis.error}</p>}
+
+      {monitor && !monitor.error && (
+        <div className="mt-3 p-3 bg-violet-50 rounded-lg border border-violet-100 space-y-2">
+          <p className="text-xs font-semibold text-violet-700 flex items-center gap-1"><Zap size={12} /> Monitoreo de redes</p>
+          {monitor.estilo_comunicacion && (
+            <div>
+              <p className="text-xs font-medium text-violet-700">📡 Estilo de comunicación</p>
+              <p className="text-xs text-gray-700">{monitor.estilo_comunicacion}</p>
+            </div>
+          )}
+          {Array.isArray(monitor.temas_recurrentes) && monitor.temas_recurrentes.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-violet-700">🔁 Temas recurrentes</p>
+              <ul className="text-xs text-gray-700 list-disc list-inside">
+                {monitor.temas_recurrentes.map((t, i) => <li key={i}>{t}</li>)}
+              </ul>
+            </div>
+          )}
+          {Array.isArray(monitor.tendencias_que_siguen) && monitor.tendencias_que_siguen.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-violet-700">📈 Tendencias que siguen</p>
+              <ul className="text-xs text-gray-700 list-disc list-inside">
+                {monitor.tendencias_que_siguen.map((t, i) => <li key={i}>{t}</li>)}
+              </ul>
+            </div>
+          )}
+          {monitor.lo_destacado && (
+            <div>
+              <p className="text-xs font-medium text-violet-700">⭐ Lo destacado</p>
+              <p className="text-xs text-gray-700">{monitor.lo_destacado}</p>
+            </div>
+          )}
+          {Array.isArray(monitor.que_aplicar_a_summit) && monitor.que_aplicar_a_summit.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-violet-700">🎯 Qué aplicar a Summit</p>
+              <ul className="text-xs text-gray-700 list-disc list-inside">
+                {monitor.que_aplicar_a_summit.map((t, i) => <li key={i}>{t}</li>)}
+              </ul>
+            </div>
+          )}
+          {monitor.como_superarlos && (
+            <div>
+              <p className="text-xs font-medium text-violet-700">🚀 Cómo superarlos</p>
+              <p className="text-xs text-gray-700">{monitor.como_superarlos}</p>
+            </div>
+          )}
+        </div>
+      )}
+      {monitor?.error && <p className="text-xs text-red-500 mt-2">{monitor.error}</p>}
     </div>
   )
 }
