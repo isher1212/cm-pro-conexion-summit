@@ -498,13 +498,6 @@ export default function Analytics() {
         </details>
       </section>
 
-      {/* Costos IA por sección */}
-      <section className="bg-white border border-gray-100 rounded-xl p-5 mb-6">
-        <h2 className="text-base font-semibold text-gray-700 mb-1">Gastos de IA por sección (30 días)</h2>
-        <p className="text-xs text-gray-400 mb-3">Dónde se concentra el costo. Útil para detectar qué optimizar.</p>
-        <AICostByContext />
-      </section>
-
       {/* Sentimiento automático */}
       <section className="bg-white border border-gray-100 rounded-xl p-5 mb-6">
         <h2 className="text-base font-semibold text-gray-700 mb-1">Sentimiento de comentarios</h2>
@@ -607,6 +600,13 @@ export default function Analytics() {
           <p className="text-gray-400 text-sm">Usa el formulario para ingresar las métricas de la semana</p>
         </div>
       )}
+
+      {/* Costos IA por sección — al final para no distraer */}
+      <section className="bg-white border border-gray-100 rounded-xl p-5 mt-8">
+        <h2 className="text-base font-semibold text-gray-700 mb-1">Gastos de IA por sección (30 días)</h2>
+        <p className="text-xs text-gray-400 mb-3">Dónde se concentra el costo. Útil para detectar qué optimizar.</p>
+        <AICostByContext />
+      </section>
     </div>
   )
 }
