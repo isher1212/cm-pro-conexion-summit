@@ -373,9 +373,10 @@ function TrendCard({ trend, fetchAll }) {
 
 function HistoryChart({ data }) {
   const byDate = {}
-  data.forEach(d => {
+  ;(Array.isArray(data) ? data : []).forEach(d => {
+    if (!d || !d.date) return
     if (!byDate[d.date]) byDate[d.date] = { date: d.date }
-    byDate[d.date][d.platform] = (byDate[d.date][d.platform] || 0) + d.count
+    byDate[d.date][d.platform] = (byDate[d.date][d.platform] || 0) + (d.count || 0)
   })
   const series = Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date))
   const platforms = ['Google Trends', 'YouTube', 'TikTok', 'LinkedIn']
@@ -490,7 +491,7 @@ export default function Trends() {
         </button>
       </div>
 
-      {history.length > 0 && (
+      {Array.isArray(history) && history.length > 0 && (
         <details className="mb-6 bg-white border border-gray-100 rounded-xl p-4">
           <summary className="text-sm font-semibold text-gray-700 cursor-pointer">📈 Histórico de tendencias (últimas 12 semanas)</summary>
           <div className="mt-4 h-64">
@@ -551,7 +552,7 @@ export default function Trends() {
         </div>
       )}
 
-      {!loading && trends.length === 0 && !error && (
+      {!loading && Array.isArray(trends) && trends.length === 0 && !error && (
         <div className="text-center py-16">
           <div className="text-4xl mb-4">🔥</div>
           <p className="text-gray-500 font-medium mb-1">No hay tendencias todavía</p>

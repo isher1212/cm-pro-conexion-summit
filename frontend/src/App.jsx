@@ -1,6 +1,7 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import SyncBanner from './components/SyncBanner'
+import ErrorBoundary from './components/ErrorBoundary'
 import Dashboard from './pages/Dashboard'
 import Overview from './pages/Overview'
 import Analytics from './pages/Analytics'
@@ -20,31 +21,38 @@ import Integrations from './pages/Integrations'
 import ImageEditor from './pages/ImageEditor'
 import Cleanup from './pages/Cleanup'
 
+function RouteBoundary({ children }) {
+  const location = useLocation()
+  return <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <SyncBanner />
       <Layout>
-        <Routes>
-          <Route path="/summit" element={<Summit />} />
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/overview" element={<Overview />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/intelligence" element={<Intelligence />} />
-          <Route path="/trends" element={<Trends />} />
-          <Route path="/saved" element={<Saved />} />
-          <Route path="/planner" element={<Planner />} />
-          <Route path="/library" element={<Library />} />
-          <Route path="/competitors" element={<Competitors />} />
-          <Route path="/templates" element={<Templates />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/brand" element={<Brand />} />
-          <Route path="/team" element={<Team />} />
-          <Route path="/integrations" element={<Integrations />} />
-          <Route path="/editor" element={<ImageEditor />} />
-          <Route path="/cleanup" element={<Cleanup />} />
-        </Routes>
+        <RouteBoundary>
+          <Routes>
+            <Route path="/summit" element={<Summit />} />
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/overview" element={<Overview />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/intelligence" element={<Intelligence />} />
+            <Route path="/trends" element={<Trends />} />
+            <Route path="/saved" element={<Saved />} />
+            <Route path="/planner" element={<Planner />} />
+            <Route path="/library" element={<Library />} />
+            <Route path="/competitors" element={<Competitors />} />
+            <Route path="/templates" element={<Templates />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/brand" element={<Brand />} />
+            <Route path="/team" element={<Team />} />
+            <Route path="/integrations" element={<Integrations />} />
+            <Route path="/editor" element={<ImageEditor />} />
+            <Route path="/cleanup" element={<Cleanup />} />
+          </Routes>
+        </RouteBoundary>
       </Layout>
     </BrowserRouter>
   )
