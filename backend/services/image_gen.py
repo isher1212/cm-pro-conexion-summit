@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import time
@@ -52,28 +53,33 @@ def build_image_prompt(
 
 
 def parse_task_works(data: dict) -> list[str]:
-    if data.get("status") != "succeed":
+    """Extract image URLs from a Kie AI recordInfo response."""
+    if data.get("state") != "success":
         return []
-    return [w["url"] for w in data.get("works", []) if w.get("url")]
+    result_json = data.get("resultJson")
+    if not result_json:
+        return []
+    try:
+        parsed = json.loads(result_json) if isinstance(result_json, str) else result_json
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return [u for u in parsed.get("resultUrls", []) if u]
 
 
 def _create_task(
     prompt: str,
     model: str,
-    resolution: str,
     aspect_ratio: str,
     api_key: str,
     image_input_urls: list[str] | None = None,
 ) -> str | None:
-    body: dict = {
-        "model": model,
+    inp: dict = {
         "prompt": prompt,
-        "resolution": resolution,
-        "aspect_ratio": aspect_ratio,
-        "output_format": "JPG",
+        "image_size": aspect_ratio,
     }
     if image_input_urls:
-        body["image_input"] = image_input_urls
+        inp["image_input"] = image_input_urls
+    body: dict = {"model": model, "input": inp}
     try:
         resp = httpx.post(
             f"{KIE_BASE}/api/v1/jobs/createTask",
@@ -82,9 +88,13 @@ def _create_task(
             timeout=30,
         )
         if resp.status_code >= 400:
-            logger.warning(f"Kie AI createTask HTTP {resp.status_code}")
+            logger.warning(f"Kie AI createTask HTTP {resp.status_code}: {resp.text[:200]}")
             return None
-        return resp.json().get("data", {}).get("taskId")
+        payload = resp.json()
+        if payload.get("code") != 200:
+            logger.warning(f"Kie AI createTask error code {payload.get('code')}: {payload.get('msg')}")
+            return None
+        return payload.get("data", {}).get("taskId")
     except Exception as e:
         logger.warning(f"Kie AI createTask failed: {e}")
         return None
@@ -95,16 +105,16 @@ def _poll_task(task_id: str, api_key: str, timeout: int = 120) -> dict:
     while time.time() < deadline:
         try:
             resp = httpx.get(
-                f"{KIE_BASE}/api/v1/jobs/getTask",
+                f"{KIE_BASE}/api/v1/jobs/recordInfo",
                 headers={"Authorization": f"Bearer {api_key}"},
                 params={"taskId": task_id},
                 timeout=15,
             )
             if resp.status_code >= 400:
-                logger.warning(f"Kie AI getTask HTTP {resp.status_code} for task {task_id}")
+                logger.warning(f"Kie AI recordInfo HTTP {resp.status_code} for task {task_id}")
                 return {}
             data = resp.json().get("data", {})
-            if data.get("status") in ("succeed", "failed"):
+            if data.get("state") in ("success", "failed", "fail"):
                 return data
         except Exception as e:
             logger.warning(f"Kie AI poll error: {e}")
@@ -117,7 +127,7 @@ def generate_images(
     platform: str,
     caption: str,
     api_key: str,
-    model: str = "nano-banana-2",
+    model: str = "google/nano-banana",
     resolution: str = "1K",
     extra_specs: str = "",
     brand_context: str = "",
@@ -126,11 +136,13 @@ def generate_images(
     custom_prompt: str | None = None,
 ) -> list[str]:
     """Generate n images via Kie AI. Pass image_input_urls for image-to-image mode."""
+    if model in ("nano-banana", "nano-banana-2", "google/nano-banana-2"):
+        model = "google/nano-banana"
     aspect_ratio = get_aspect_ratio(platform)
     all_urls: list[str] = []
     prompt = custom_prompt or build_image_prompt(topic, platform, caption, brand_context, extra_specs)
     for _ in range(n):
-        task_id = _create_task(prompt, model, resolution, aspect_ratio, api_key, image_input_urls)
+        task_id = _create_task(prompt, model, aspect_ratio, api_key, image_input_urls)
         if not task_id:
             continue
         data = _poll_task(task_id, api_key)
