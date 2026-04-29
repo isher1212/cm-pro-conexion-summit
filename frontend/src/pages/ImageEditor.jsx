@@ -1,6 +1,28 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Download, Type, Image as ImageIcon, Trash2 } from 'lucide-react'
+import { Download, Type, Image as ImageIcon, Trash2, Award, Sliders, Move } from 'lucide-react'
+
+const POSITION_PRESETS = [
+  { val: 'tl', label: '↖' }, { val: 'tc', label: '↑' }, { val: 'tr', label: '↗' },
+  { val: 'cl', label: '←' }, { val: 'cc', label: '·' }, { val: 'cr', label: '→' },
+  { val: 'bl', label: '↙' }, { val: 'bc', label: '↓' }, { val: 'br', label: '↘' },
+]
+
+function positionFor(preset, canvasW, canvasH, itemW, itemH, padding = 24) {
+  const map = {
+    tl: [padding, padding],
+    tc: [(canvasW - itemW) / 2, padding],
+    tr: [canvasW - itemW - padding, padding],
+    cl: [padding, (canvasH - itemH) / 2],
+    cc: [(canvasW - itemW) / 2, (canvasH - itemH) / 2],
+    cr: [canvasW - itemW - padding, (canvasH - itemH) / 2],
+    bl: [padding, canvasH - itemH - padding],
+    bc: [(canvasW - itemW) / 2, canvasH - itemH - padding],
+    br: [canvasW - itemW - padding, canvasH - itemH - padding],
+  }
+  const [x, y] = map[preset] || map.cc
+  return { x: Math.round(x), y: Math.round(y) }
+}
 
 export default function ImageEditor() {
   const [params] = useSearchParams()
@@ -9,11 +31,14 @@ export default function ImageEditor() {
   const [imgUrl, setImgUrl] = useState(initialUrl)
   const [textLayers, setTextLayers] = useState([])
   const [logoUrl, setLogoUrl] = useState('')
-  const [logoPos, setLogoPos] = useState({ x: 20, y: 20, size: 100 })
+  const [logoPos, setLogoPos] = useState({ x: 24, y: 24, size: 100 })
   const [activeText, setActiveText] = useState(null)
   const [bgImg, setBgImg] = useState(null)
   const [logoImg, setLogoImg] = useState(null)
   const [error, setError] = useState('')
+  const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturation: 100 })
+  const [brandLoading, setBrandLoading] = useState(false)
+  const [drag, setDrag] = useState(null)
 
   useEffect(() => {
     if (!imgUrl) return
@@ -40,7 +65,11 @@ export default function ImageEditor() {
     canvas.width = bgImg.naturalWidth
     canvas.height = bgImg.naturalHeight
     const ctx = canvas.getContext('2d')
+
+    ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%)`
     ctx.drawImage(bgImg, 0, 0)
+    ctx.filter = 'none'
+
     if (logoImg) {
       const ratio = logoImg.naturalHeight / logoImg.naturalWidth
       ctx.drawImage(logoImg, logoPos.x, logoPos.y, logoPos.size, logoPos.size * ratio)
@@ -60,7 +89,7 @@ export default function ImageEditor() {
       const lines = (t.text || '').split('\n')
       lines.forEach((line, i) => ctx.fillText(line, t.x, t.y + i * (t.size + 6)))
     })
-  }, [bgImg, logoImg, logoPos, textLayers])
+  }, [bgImg, logoImg, logoPos, textLayers, filters])
 
   function addText() {
     setTextLayers(prev => [...prev, {
@@ -76,6 +105,28 @@ export default function ImageEditor() {
   function removeText(id) {
     setTextLayers(prev => prev.filter(t => t.id !== id))
     if (activeText === id) setActiveText(null)
+  }
+
+  function applyLogoPreset(preset) {
+    if (!bgImg || !logoImg) return
+    const ratio = logoImg.naturalHeight / logoImg.naturalWidth
+    const w = logoPos.size
+    const h = logoPos.size * ratio
+    const pos = positionFor(preset, bgImg.naturalWidth, bgImg.naturalHeight, w, h)
+    setLogoPos({ ...logoPos, ...pos })
+  }
+
+  function applyTextPreset(id, preset) {
+    if (!bgImg) return
+    const t = textLayers.find(l => l.id === id)
+    if (!t) return
+    const ctx = canvasRef.current.getContext('2d')
+    ctx.font = `${t.bold ? 'bold ' : ''}${t.size}px ${t.font}`
+    const w = ctx.measureText(t.text || '').width
+    const lines = (t.text || '').split('\n').length
+    const h = lines * (t.size + 6)
+    const pos = positionFor(preset, bgImg.naturalWidth, bgImg.naturalHeight, w, h)
+    updateText(id, pos)
   }
 
   function download() {
@@ -100,12 +151,81 @@ export default function ImageEditor() {
     }
   }
 
+  async function loadBrandLogo() {
+    setBrandLoading(true)
+    try {
+      const r = await fetch('/api/brand/current')
+      const data = await r.json()
+      if (data && data.logo_url) {
+        setLogoUrl(data.logo_url)
+      } else {
+        alert('La marca activa no tiene logo. Súbelo primero en la página Marca.')
+      }
+    } catch {
+      alert('No se pudo cargar el logo de la marca.')
+    } finally { setBrandLoading(false) }
+  }
+
+  function resetFilters() {
+    setFilters({ brightness: 100, contrast: 100, saturation: 100 })
+  }
+
+  function onCanvasMouseDown(e) {
+    if (!bgImg) return
+    const canvas = canvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
+
+    if (logoImg) {
+      const ratio = logoImg.naturalHeight / logoImg.naturalWidth
+      const w = logoPos.size
+      const h = logoPos.size * ratio
+      if (x >= logoPos.x && x <= logoPos.x + w && y >= logoPos.y && y <= logoPos.y + h) {
+        setDrag({ kind: 'logo', offsetX: x - logoPos.x, offsetY: y - logoPos.y })
+        return
+      }
+    }
+    for (let i = textLayers.length - 1; i >= 0; i--) {
+      const t = textLayers[i]
+      const ctx = canvas.getContext('2d')
+      ctx.font = `${t.bold ? 'bold ' : ''}${t.size}px ${t.font}`
+      const w = ctx.measureText(t.text || '').width
+      const lines = (t.text || '').split('\n').length
+      const h = lines * (t.size + 6)
+      if (x >= t.x && x <= t.x + w && y >= t.y && y <= t.y + h) {
+        setActiveText(t.id)
+        setDrag({ kind: 'text', id: t.id, offsetX: x - t.x, offsetY: y - t.y })
+        return
+      }
+    }
+  }
+
+  function onCanvasMouseMove(e) {
+    if (!drag) return
+    const canvas = canvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
+    if (drag.kind === 'logo') {
+      setLogoPos({ ...logoPos, x: Math.round(x - drag.offsetX), y: Math.round(y - drag.offsetY) })
+    } else if (drag.kind === 'text') {
+      updateText(drag.id, { x: Math.round(x - drag.offsetX), y: Math.round(y - drag.offsetY) })
+    }
+  }
+
+  function onCanvasMouseUp() { setDrag(null) }
+
   const active = textLayers.find(t => t.id === activeText)
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Editor de imagen</h1>
-      <p className="text-gray-500 text-sm mb-6">Agrega logo y texto a tus imágenes generadas</p>
+      <p className="text-gray-500 text-sm mb-6">Agrega logo y texto a tus imágenes generadas, ajusta filtros y exporta.</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="space-y-4 order-2 lg:order-1">
@@ -120,30 +240,71 @@ export default function ImageEditor() {
           </div>
 
           <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-2">
-            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1"><ImageIcon size={14} /> Logo</h3>
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1"><Sliders size={14} /> Filtros</h3>
+            <div className="space-y-2">
+              {[
+                { key: 'brightness', label: 'Brillo', min: 50, max: 150 },
+                { key: 'contrast', label: 'Contraste', min: 50, max: 150 },
+                { key: 'saturation', label: 'Saturación', min: 0, max: 200 },
+              ].map(f => (
+                <div key={f.key}>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>{f.label}</span>
+                    <span className="tabular-nums">{filters[f.key]}%</span>
+                  </div>
+                  <input type="range" min={f.min} max={f.max} value={filters[f.key]}
+                    onChange={e => setFilters({ ...filters, [f.key]: parseInt(e.target.value) })}
+                    className="w-full accent-indigo-600" />
+                </div>
+              ))}
+              <button onClick={resetFilters} className="text-xs text-gray-400 hover:text-gray-600">Restablecer filtros</button>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-2">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1"><ImageIcon size={14} /> Logo</h3>
+              <button onClick={loadBrandLogo} disabled={brandLoading}
+                className="text-xs text-violet-600 hover:text-violet-800 font-medium disabled:opacity-50 flex items-center gap-1">
+                <Award size={11} /> {brandLoading ? 'Cargando...' : 'Usar logo de marca'}
+              </button>
+            </div>
             <input value={logoUrl} onChange={e => setLogoUrl(e.target.value)}
               placeholder="URL del logo (PNG transparente recomendado)"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             <input type="file" accept="image/*" onChange={uploadFile(d => setLogoUrl(d))}
               className="text-xs text-gray-500" />
             {logoImg && (
-              <div className="grid grid-cols-3 gap-2 mt-2">
-                <div>
-                  <label className="text-xs text-gray-500">X</label>
-                  <input type="number" value={logoPos.x} onChange={e => setLogoPos({ ...logoPos, x: parseInt(e.target.value) || 0 })}
-                    className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
+              <>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <div>
+                    <label className="text-xs text-gray-500">X</label>
+                    <input type="number" value={logoPos.x} onChange={e => setLogoPos({ ...logoPos, x: parseInt(e.target.value) || 0 })}
+                      className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Y</label>
+                    <input type="number" value={logoPos.y} onChange={e => setLogoPos({ ...logoPos, y: parseInt(e.target.value) || 0 })}
+                      className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Tamaño</label>
+                    <input type="number" value={logoPos.size} onChange={e => setLogoPos({ ...logoPos, size: parseInt(e.target.value) || 50 })}
+                      className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
+                  </div>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">Y</label>
-                  <input type="number" value={logoPos.y} onChange={e => setLogoPos({ ...logoPos, y: parseInt(e.target.value) || 0 })}
-                    className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
+                  <label className="text-xs text-gray-500 block mb-1">Posición rápida</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {POSITION_PRESETS.map(p => (
+                      <button key={p.val} onClick={() => applyLogoPreset(p.val)}
+                        className="aspect-square bg-gray-50 hover:bg-indigo-50 hover:text-indigo-700 border border-gray-200 rounded text-sm">
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500">Tamaño</label>
-                  <input type="number" value={logoPos.size} onChange={e => setLogoPos({ ...logoPos, size: parseInt(e.target.value) || 50 })}
-                    className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
-                </div>
-              </div>
+              </>
             )}
           </div>
 
@@ -208,6 +369,17 @@ export default function ImageEditor() {
                     className="accent-indigo-600" /> Sombra
                 </label>
               </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Posición rápida</label>
+                <div className="grid grid-cols-3 gap-1">
+                  {POSITION_PRESETS.map(p => (
+                    <button key={p.val} onClick={() => applyTextPreset(active.id, p.val)}
+                      className="aspect-square bg-gray-50 hover:bg-indigo-50 hover:text-indigo-700 border border-gray-200 rounded text-sm">
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -218,9 +390,16 @@ export default function ImageEditor() {
         </div>
 
         <div className="lg:col-span-2 order-1 lg:order-2">
-          <div className="bg-gray-100 rounded-xl p-4 flex items-center justify-center min-h-[400px]">
+          <div className="bg-gray-100 rounded-xl p-4 flex items-center justify-center min-h-[400px] relative">
             {bgImg ? (
-              <canvas ref={canvasRef} className="max-w-full max-h-[600px] border border-gray-200 rounded shadow" />
+              <>
+                <canvas ref={canvasRef}
+                  onMouseDown={onCanvasMouseDown} onMouseMove={onCanvasMouseMove} onMouseUp={onCanvasMouseUp} onMouseLeave={onCanvasMouseUp}
+                  className="max-w-full max-h-[600px] border border-gray-200 rounded shadow cursor-move" />
+                <div className="absolute top-2 right-2 bg-white/90 text-xs text-gray-500 px-2 py-1 rounded flex items-center gap-1">
+                  <Move size={11} /> Arrastra logo o texto
+                </div>
+              </>
             ) : (
               <p className="text-sm text-gray-400">Carga una imagen para empezar</p>
             )}

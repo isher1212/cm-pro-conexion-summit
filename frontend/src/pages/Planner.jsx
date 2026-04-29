@@ -303,12 +303,16 @@ function ProposalCard({ proposal, onStatusChange, onEdit }) {
                 {imgUrls.map((url) => (
                   <div key={url} className="relative group">
                     <img src={url} alt="" className="w-full max-h-56 object-contain rounded-xl border border-gray-100 bg-gray-50" />
-                    <a href={url} target="_blank" rel="noreferrer"
-                      className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors flex items-end justify-end p-2">
-                      <span className="text-xs bg-black/50 text-white px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                        Ver original ↗
-                      </span>
-                    </a>
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <a href={`/editor?url=${encodeURIComponent(url)}`} target="_blank" rel="noreferrer"
+                        className="text-xs bg-violet-600 hover:bg-violet-700 text-white px-2 py-1 rounded">
+                        ✏ Editar
+                      </a>
+                      <a href={url} target="_blank" rel="noreferrer"
+                        className="text-xs bg-black/60 hover:bg-black/80 text-white px-2 py-1 rounded">
+                        Ver ↗
+                      </a>
+                    </div>
                   </div>
                 ))}
               </div>
