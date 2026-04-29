@@ -99,3 +99,67 @@ def historical_ai_overview():
     if not client:
         return {"error": "OpenAI API key no configurada"}
     return historical_overview(client, config.get("brand_context", ""))
+
+
+@router.post("/summit/{table}/{item_id}/analyze")
+def analyze_summit_item(table: str, item_id: int, body: dict = None):
+    """Analyze a single Summit item with AI to generate insights, content ideas, and recommendations."""
+    config = load_config()
+    client = _openai_client(config)
+    if not client:
+        return {"error": "OpenAI API key no configurada"}
+
+    from backend.services.summit import get_item_by_id
+    item = get_item_by_id(table, item_id)
+    if not item:
+        return {"error": "Item no encontrado"}
+
+    brand_context = config.get("brand_context", "")
+
+    type_label = {
+        "speakers": "speaker (ponente)",
+        "sponsors": "sponsor (patrocinador)",
+        "key_people": "persona clave del equipo",
+        "summit_milestones": "hito del evento",
+        "event_goals": "meta del evento",
+    }.get(table, "item")
+
+    item_summary = "\n".join(f"{k}: {v}" for k, v in item.items() if v not in (None, "", 0) and k not in ("id", "edition_id", "created_at"))
+
+    prompt = f"""Eres consultor estratégico de Conexión Summit (plataforma de emprendimiento en LATAM).
+{f"Contexto de marca: {brand_context}" if brand_context else ""}
+
+Analiza este {type_label} del evento y genera información valiosa para que el equipo de marketing pueda crear contenido y mejorar conexiones:
+
+{item_summary}
+
+Responde EXACTAMENTE en este formato JSON (solo JSON, sin texto adicional):
+{{
+  "perfil": "1-2 oraciones describiendo quién/qué es y por qué importa al evento",
+  "puntos_fuertes": ["punto 1", "punto 2", "punto 3"],
+  "ideas_contenido": ["idea concreta de post o pieza de contenido 1", "idea 2", "idea 3"],
+  "como_potenciar": "2-3 oraciones con acciones específicas para sacarle más provecho a este {type_label} antes/durante/después del evento",
+  "preguntas_clave": ["pregunta interesante para entrevista o conversación 1", "pregunta 2", "pregunta 3"],
+  "riesgos_o_alertas": "1-2 oraciones (puede ser 'ninguno detectado' si no aplica)"
+}}"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=900,
+            temperature=0.7,
+            response_format={"type": "json_object"},
+        )
+        try:
+            from backend.services.ai_usage import log_openai_usage
+            log_openai_usage("gpt-4o-mini", response, context=f"summit/analyze/{table}")
+        except Exception:
+            pass
+        import json
+        text = response.choices[0].message.content or "{}"
+        data = json.loads(text)
+        return data
+    except Exception as e:
+        logger.warning(f"summit analyze {table}/{item_id} failed: {e}")
+        return {"error": f"Error al analizar: {e}"}

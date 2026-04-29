@@ -156,6 +156,18 @@ def delete_item(table: str, item_id: int):
     conn.commit()
 
 
+def get_item_by_id(table: str, item_id: int) -> dict | None:
+    if table not in {"speakers", "sponsors", "key_people", "summit_milestones", "event_goals"}:
+        return None
+    from backend.database import get_db
+    conn = get_db()
+    row = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (item_id,)).fetchone()
+    if not row:
+        return None
+    cols = [c[1] for c in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+    return dict(zip(cols, row))
+
+
 def edition_panorama(edition_id: int, openai_client, brand_context: str = "") -> dict:
     if not openai_client:
         return {"error": "OpenAI no configurada"}

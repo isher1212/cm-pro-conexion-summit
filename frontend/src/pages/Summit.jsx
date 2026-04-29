@@ -292,6 +292,8 @@ function ItemsPanel({ table, editionId }) {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({})
   const [editingId, setEditingId] = useState(null)
+  const [analyzing, setAnalyzing] = useState({})
+  const [analysis, setAnalysis] = useState({})
   const fields = FIELD_DEFS[table] || []
 
   const fetchAll = useCallback(async () => {
@@ -299,7 +301,7 @@ function ItemsPanel({ table, editionId }) {
     setItems(await r.json())
   }, [editionId, table])
 
-  useEffect(() => { fetchAll(); setShowForm(false); setEditingId(null); setForm({}) }, [fetchAll])
+  useEffect(() => { fetchAll(); setShowForm(false); setEditingId(null); setForm({}); setAnalyzing({}); setAnalysis({}) }, [fetchAll])
 
   async function save() {
     if (editingId) {
@@ -323,6 +325,21 @@ function ItemsPanel({ table, editionId }) {
 
   function startEdit(item) {
     setForm({ ...item }); setEditingId(item.id); setShowForm(true)
+  }
+
+  async function analyze(itemId) {
+    setAnalyzing(prev => ({ ...prev, [itemId]: true }))
+    try {
+      const r = await fetch(`/api/summit/${table}/${itemId}/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      const data = await r.json()
+      setAnalysis(prev => ({ ...prev, [itemId]: data }))
+    } catch {} finally {
+      setAnalyzing(prev => ({ ...prev, [itemId]: false }))
+    }
+  }
+
+  function closeAnalysis(itemId) {
+    setAnalysis(prev => { const n = { ...prev }; delete n[itemId]; return n })
   }
 
   return (
@@ -372,29 +389,92 @@ function ItemsPanel({ table, editionId }) {
 
       {items.length === 0 && <p className="text-sm text-gray-400">Aún no hay registros.</p>}
       {items.map(item => (
-        <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-gray-900">{item.name || item.title}</h3>
-            <div className="text-xs text-gray-500 mt-1 flex gap-3 flex-wrap">
-              {item.role && <span>{item.role}</span>}
-              {item.company && <span>· {item.company}</span>}
-              {item.tier && <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded">{item.tier}</span>}
-              {item.phase && <span>· {item.phase}</span>}
-              {item.date && <span>📅 {item.date}</span>}
-              {item.deadline && <span>📅 {item.deadline}</span>}
-              {item.target_value > 0 && <span>{item.current_value || 0}/{item.target_value} {item.unit}</span>}
-              {item.agreement_value > 0 && <span>${item.agreement_value}</span>}
-              {item.confirmed === 1 && <span className="text-green-600">✓ Confirmado</span>}
-              {item.completed === 1 && <span className="text-green-600">✓ Hecho</span>}
+        <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-gray-900">{item.name || item.title}</h3>
+              <div className="text-xs text-gray-500 mt-1 flex gap-3 flex-wrap">
+                {item.role && <span>{item.role}</span>}
+                {item.company && <span>· {item.company}</span>}
+                {item.tier && <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded">{item.tier}</span>}
+                {item.phase && <span>· {item.phase}</span>}
+                {item.date && <span>📅 {item.date}</span>}
+                {item.deadline && <span>📅 {item.deadline}</span>}
+                {item.target_value > 0 && <span>{item.current_value || 0}/{item.target_value} {item.unit}</span>}
+                {item.agreement_value > 0 && <span>${item.agreement_value}</span>}
+                {item.confirmed === 1 && <span className="text-green-600">✓ Confirmado</span>}
+                {item.completed === 1 && <span className="text-green-600">✓ Hecho</span>}
+              </div>
+              {(item.bio || item.description || item.notes || item.deliverables) && (
+                <p className="text-xs text-gray-500 mt-2 line-clamp-2">{item.bio || item.description || item.notes || item.deliverables}</p>
+              )}
             </div>
-            {(item.bio || item.description || item.notes || item.deliverables) && (
-              <p className="text-xs text-gray-500 mt-2 line-clamp-2">{item.bio || item.description || item.notes || item.deliverables}</p>
-            )}
+            <div className="flex gap-2 flex-shrink-0 items-center">
+              <button onClick={() => analyze(item.id)} disabled={!!analyzing[item.id]}
+                className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-1 disabled:opacity-50">
+                <Sparkles size={12} /> {analyzing[item.id] ? 'Analizando...' : 'Analizar con IA'}
+              </button>
+              <button onClick={() => startEdit(item)} className="text-gray-400 hover:text-gray-600"><Edit2 size={13} /></button>
+              <button onClick={() => del(item.id)} className="text-red-300 hover:text-red-500"><Trash2 size={13} /></button>
+            </div>
           </div>
-          <div className="flex gap-1 flex-shrink-0">
-            <button onClick={() => startEdit(item)} className="text-gray-400 hover:text-gray-600"><Edit2 size={13} /></button>
-            <button onClick={() => del(item.id)} className="text-red-300 hover:text-red-500"><Trash2 size={13} /></button>
-          </div>
+
+          {analysis[item.id] && !analysis[item.id].error && (
+            <div className="mt-3 pt-3 border-t border-gray-100 bg-violet-50/40 -mx-4 -mb-4 px-4 pb-4 rounded-b-xl space-y-2">
+              <div className="flex justify-between items-start">
+                <p className="text-xs font-semibold text-violet-700">✨ Análisis con IA</p>
+                <button onClick={() => closeAnalysis(item.id)} className="text-violet-300 hover:text-violet-600 text-sm leading-none">×</button>
+              </div>
+              {analysis[item.id].perfil && (
+                <div>
+                  <p className="text-xs font-medium text-violet-700">📋 Perfil</p>
+                  <p className="text-xs text-gray-700 leading-relaxed">{analysis[item.id].perfil}</p>
+                </div>
+              )}
+              {Array.isArray(analysis[item.id].puntos_fuertes) && analysis[item.id].puntos_fuertes.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-violet-700">💪 Puntos fuertes</p>
+                  <ul className="text-xs text-gray-700 list-disc list-inside leading-relaxed">
+                    {analysis[item.id].puntos_fuertes.map((p, i) => <li key={i}>{p}</li>)}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(analysis[item.id].ideas_contenido) && analysis[item.id].ideas_contenido.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-violet-700">💡 Ideas de contenido</p>
+                  <ul className="text-xs text-gray-700 list-disc list-inside leading-relaxed">
+                    {analysis[item.id].ideas_contenido.map((p, i) => <li key={i}>{p}</li>)}
+                  </ul>
+                </div>
+              )}
+              {analysis[item.id].como_potenciar && (
+                <div>
+                  <p className="text-xs font-medium text-violet-700">🚀 Cómo potenciar</p>
+                  <p className="text-xs text-gray-700 leading-relaxed">{analysis[item.id].como_potenciar}</p>
+                </div>
+              )}
+              {Array.isArray(analysis[item.id].preguntas_clave) && analysis[item.id].preguntas_clave.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-violet-700">❓ Preguntas clave</p>
+                  <ul className="text-xs text-gray-700 list-disc list-inside leading-relaxed">
+                    {analysis[item.id].preguntas_clave.map((p, i) => <li key={i}>{p}</li>)}
+                  </ul>
+                </div>
+              )}
+              {analysis[item.id].riesgos_o_alertas && analysis[item.id].riesgos_o_alertas !== 'ninguno detectado' && (
+                <div>
+                  <p className="text-xs font-medium text-amber-700">⚠ Riesgos/Alertas</p>
+                  <p className="text-xs text-amber-900 leading-relaxed">{analysis[item.id].riesgos_o_alertas}</p>
+                </div>
+              )}
+            </div>
+          )}
+          {analysis[item.id]?.error && (
+            <div className="mt-2 text-xs text-red-500">
+              {analysis[item.id].error}
+              <button onClick={() => closeAnalysis(item.id)} className="ml-2 text-gray-400">×</button>
+            </div>
+          )}
         </div>
       ))}
     </div>
