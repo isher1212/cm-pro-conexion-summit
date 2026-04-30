@@ -63,7 +63,7 @@ def parse_instagram_account_csv(csv_data: str) -> list[dict[str, Any]]:
         if "date" not in mapped:
             continue
         results.append({
-            "platform": "instagram",
+            "platform": "Instagram",
             "followers": _safe_int(mapped.get("followers", 0)),
             "reach": _safe_int(mapped.get("reach", 0)),
             "impressions": _safe_int(mapped.get("impressions", 0)),
@@ -97,7 +97,7 @@ def parse_instagram_posts_csv(csv_data: str) -> list[dict[str, Any]]:
         reach = _safe_int(mapped.get("reach", 0))
         eng = round((likes + comments + shares) / reach * 100, 2) if reach > 0 else 0.0
         results.append({
-            "platform": "instagram",
+            "platform": "Instagram",
             "post_description": mapped.get("description", "")[:500],
             "published_at": mapped.get("date", "").strip(),
             "likes": likes,

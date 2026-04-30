@@ -559,6 +559,21 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
         conn.commit()
     except Exception:
         pass
+
+    # Phase 20 migration: normalize platform names to capitalized form
+    # (older CSV imports stored "instagram"/"tiktok"/"linkedin" lowercase
+    # while the rest of the app expects "Instagram"/"TikTok"/"LinkedIn")
+    try:
+        for table in ("metrics", "posts"):
+            try:
+                conn.execute(f"UPDATE {table} SET platform = 'Instagram' WHERE platform = 'instagram'")
+                conn.execute(f"UPDATE {table} SET platform = 'TikTok' WHERE platform = 'tiktok'")
+                conn.execute(f"UPDATE {table} SET platform = 'LinkedIn' WHERE platform = 'linkedin'")
+            except Exception:
+                pass
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 _conn: sqlite3.Connection | None = None
