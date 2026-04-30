@@ -162,7 +162,7 @@ function MetricsForm({ onSaved }) {
 }
 
 // ── Instagram Connect ─────────────────────────────────────────────────────────
-function InstagramConnect() {
+function InstagramConnect({ onImported }) {
   const [csvType, setCsvType] = useState('account')
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState(null)
@@ -189,6 +189,7 @@ function InstagramConnect() {
       })
       const data = await res.json()
       setImportResult(data)
+      if (data && !data.error && onImported) onImported()
     } catch {
       setImportResult({ error: 'Error al importar' })
     } finally {
@@ -203,6 +204,7 @@ function InstagramConnect() {
       const res = await fetch('/api/analytics/instagram/sync', { method: 'POST' })
       const data = await res.json()
       setImportResult(data)
+      if (data && !data.error && onImported) onImported()
     } catch {
       setImportResult({ error: 'Error al sincronizar' })
     } finally {
@@ -385,7 +387,7 @@ export default function Analytics() {
         </div>
       </div>
 
-      <InstagramConnect />
+      <InstagramConnect onImported={fetchAll} />
 
       <AnomalyAlert anomalies={anomalies} />
 
