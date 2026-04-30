@@ -263,3 +263,102 @@ async def import_comments_csv_endpoint(file: UploadFile = File(...)):
         return import_comments_csv(text)
     except Exception as e:
         return {"error": str(e)}
+
+
+@router.post("/analytics/post/{post_id}/insights")
+def post_insights(post_id: int):
+    """Generate AI analysis of a single post's performance.
+    Returns: { rendimiento, factores_exito, areas_mejora, sugerencias_proximos, comparativa }
+    """
+    from backend.config import load_config
+    config = load_config()
+    api_key = config.get("openai_api_key", "")
+    if not api_key:
+        return {"error": "OpenAI API key no configurada"}
+
+    conn = get_db()
+    row = conn.execute(
+        """SELECT id, platform, post_description, published_at, likes, comments, shares, reach, impressions, engagement_rate, recorded_at
+           FROM posts WHERE id = ?""",
+        (post_id,),
+    ).fetchone()
+    if not row:
+        return {"error": "Post no encontrado"}
+    cols = ["id", "platform", "post_description", "published_at", "likes", "comments", "shares", "reach", "impressions", "engagement_rate", "recorded_at"]
+    post = dict(zip(cols, row))
+
+    # Calcular promedios de la plataforma para comparativa
+    avg_row = conn.execute(
+        """SELECT AVG(reach), AVG(likes), AVG(comments), AVG(engagement_rate)
+           FROM posts WHERE platform = ? AND id != ?""",
+        (post["platform"], post_id),
+    ).fetchone()
+    avg = {
+        "reach": float(avg_row[0] or 0),
+        "likes": float(avg_row[1] or 0),
+        "comments": float(avg_row[2] or 0),
+        "engagement_rate": float(avg_row[3] or 0),
+    }
+
+    from openai import OpenAI
+    client = OpenAI(api_key=api_key)
+    brand = config.get("brand_context", "")
+
+    def pct_diff(a, b):
+        if not b:
+            return "N/A"
+        return f"{((a - b) / b * 100):+.0f}%"
+
+    prompt = f"""Eres analista experto de redes sociales para Conexión Summit (plataforma de emprendimiento LATAM).
+{f"CONTEXTO MARCA: {brand}" if brand else ""}
+
+Analiza el rendimiento de esta publicación y dame insights accionables:
+
+PUBLICACIÓN:
+- Plataforma: {post['platform']}
+- Fecha: {post.get('published_at', 'N/D')}
+- Descripción: {post.get('post_description', '')[:400]}
+- Alcance: {post['reach']:,}
+- Likes: {post['likes']:,}
+- Comentarios: {post['comments']:,}
+- Compartidos: {post.get('shares', 0):,}
+- Impresiones: {post.get('impressions', 0):,}
+- Engagement rate: {post['engagement_rate']:.2f}%
+
+PROMEDIOS DE LA PLATAFORMA (para comparar):
+- Alcance prom: {avg['reach']:,.0f} (este post: {pct_diff(post['reach'], avg['reach'])} vs promedio)
+- Likes prom: {avg['likes']:,.0f} ({pct_diff(post['likes'], avg['likes'])})
+- Comentarios prom: {avg['comments']:,.0f} ({pct_diff(post['comments'], avg['comments'])})
+- ER prom: {avg['engagement_rate']:.2f}% ({pct_diff(post['engagement_rate'], avg['engagement_rate'])})
+
+Responde EXACTAMENTE en este formato JSON (solo JSON, sin texto adicional):
+{{
+  "rendimiento": "Evaluación de 1 oración: bajo/medio/alto y por qué (compara con promedios)",
+  "veredicto": "una de: 'excelente' | 'sobre el promedio' | 'en el promedio' | 'bajo el promedio'",
+  "factores_exito": ["3-4 factores que probablemente impulsaron el resultado (formato, hook, tema, momento, etc.)"],
+  "areas_mejora": ["2-3 áreas concretas donde este post pudo haber sido mejor"],
+  "sugerencias_proximos": ["3-4 sugerencias específicas y accionables para futuras publicaciones similares"],
+  "tipo_contenido": "categoría detectada (ej: 'Anuncio de speaker', 'Behind the scenes', 'Carrusel educativo', 'Reel viral')",
+  "mejor_momento_publicar": "Sugerencia de día/hora ideal basada en el patrón observado (1 frase)"
+}}"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000,
+            temperature=0.6,
+            response_format={"type": "json_object"},
+        )
+        try:
+            from backend.services.ai_usage import log_openai_usage
+            log_openai_usage("gpt-4o-mini", response, context="analytics/post-insights")
+        except Exception:
+            pass
+        import json
+        result = json.loads(response.choices[0].message.content or "{}")
+        result["_post"] = post
+        result["_avg"] = avg
+        return result
+    except Exception as e:
+        return {"error": f"Error: {e}"}

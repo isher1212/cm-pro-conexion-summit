@@ -3,7 +3,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
-import { Users, TrendingUp, Activity, AlertTriangle, Plus, ChevronUp } from 'lucide-react'
+import { Users, TrendingUp, Activity, AlertTriangle, Plus, ChevronUp, Sparkles, X } from 'lucide-react'
 
 const PLATFORMS = ['Instagram', 'TikTok', 'LinkedIn']
 const PLATFORM_COLORS = { Instagram: '#e1306c', TikTok: '#010101', LinkedIn: '#0077b5' }
@@ -564,35 +564,7 @@ export default function Analytics() {
 
       {/* Posts table */}
       {posts.length > 0 && (
-        <div className="bg-white border border-gray-100 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">
-            Publicaciones recientes — {activePlatform}
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left text-gray-400 font-medium pb-2 pr-4">Publicación</th>
-                  <th className="text-right text-gray-400 font-medium pb-2 px-2">Alcance</th>
-                  <th className="text-right text-gray-400 font-medium pb-2 px-2">Likes</th>
-                  <th className="text-right text-gray-400 font-medium pb-2 px-2">Comentarios</th>
-                  <th className="text-right text-gray-400 font-medium pb-2">Engagement</th>
-                </tr>
-              </thead>
-              <tbody>
-                {posts.map(post => (
-                  <tr key={post.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="py-2 pr-4 text-gray-700 max-w-xs truncate">{post.post_description || '—'}</td>
-                    <td className="py-2 px-2 text-right text-gray-600">{post.reach?.toLocaleString('es-CO')}</td>
-                    <td className="py-2 px-2 text-right text-gray-600">{post.likes?.toLocaleString('es-CO')}</td>
-                    <td className="py-2 px-2 text-right text-gray-600">{post.comments?.toLocaleString('es-CO')}</td>
-                    <td className="py-2 text-right font-medium text-indigo-600">{post.engagement_rate?.toFixed(1)}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <PostsAnalysisTable posts={posts} platform={activePlatform} />
       )}
 
       {!loading && summary.length === 0 && (
@@ -670,6 +642,240 @@ function AICostByContext() {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function PostsAnalysisTable({ posts, platform }) {
+  const [selectedPost, setSelectedPost] = useState(null)
+
+  return (
+    <>
+      <div className="bg-white border border-gray-100 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-700">
+            Publicaciones recientes — {platform}
+          </h3>
+          <span className="text-xs text-gray-400">Click en una fila para ver análisis IA</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left text-gray-400 font-medium pb-2 pr-4">Publicación</th>
+                <th className="text-right text-gray-400 font-medium pb-2 px-2">Alcance</th>
+                <th className="text-right text-gray-400 font-medium pb-2 px-2">Likes</th>
+                <th className="text-right text-gray-400 font-medium pb-2 px-2">Coment.</th>
+                <th className="text-right text-gray-400 font-medium pb-2">Engagement</th>
+                <th className="pb-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {posts.map(post => (
+                <tr key={post.id}
+                  onClick={() => setSelectedPost(post)}
+                  className="border-b border-gray-50 hover:bg-violet-50/50 cursor-pointer transition-colors">
+                  <td className="py-2 pr-4 text-gray-700 max-w-xs truncate">{post.post_description || '—'}</td>
+                  <td className="py-2 px-2 text-right text-gray-600 tabular-nums">{post.reach?.toLocaleString('es-CO')}</td>
+                  <td className="py-2 px-2 text-right text-gray-600 tabular-nums">{post.likes?.toLocaleString('es-CO')}</td>
+                  <td className="py-2 px-2 text-right text-gray-600 tabular-nums">{post.comments?.toLocaleString('es-CO')}</td>
+                  <td className="py-2 text-right font-medium text-indigo-600 tabular-nums">{post.engagement_rate?.toFixed(1)}%</td>
+                  <td className="py-2 pl-2 text-violet-500 text-right">
+                    <Sparkles size={13} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {selectedPost && (
+        <PostInsightsModal post={selectedPost} onClose={() => setSelectedPost(null)} />
+      )}
+    </>
+  )
+}
+
+function PostInsightsModal({ post, onClose }) {
+  const [insights, setInsights] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setLoading(true)
+    setError('')
+    fetch(`/api/analytics/post/${post.id}/insights`, { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) setError(data.error)
+        else setInsights(data)
+      })
+      .catch(() => setError('Error de conexión'))
+      .finally(() => setLoading(false))
+  }, [post.id])
+
+  const verdictColor = {
+    'excelente': 'bg-green-100 text-green-700 border-green-200',
+    'sobre el promedio': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    'en el promedio': 'bg-gray-100 text-gray-600 border-gray-200',
+    'bajo el promedio': 'bg-amber-100 text-amber-700 border-amber-200',
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} className="text-violet-600" />
+            <h2 className="text-base font-semibold text-gray-900">Análisis de publicación</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* Post info */}
+          <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+            <p className="text-sm text-gray-700 leading-relaxed">{post.post_description}</p>
+            <p className="text-xs text-gray-400">{post.platform} · {post.published_at}</p>
+          </div>
+
+          {/* Métricas */}
+          <div className="grid grid-cols-4 gap-3">
+            <div className="bg-white border border-gray-100 rounded-xl p-3">
+              <p className="text-xs text-gray-500 mb-1">Alcance</p>
+              <p className="text-lg font-bold text-gray-900">{post.reach?.toLocaleString('es-CO')}</p>
+            </div>
+            <div className="bg-white border border-gray-100 rounded-xl p-3">
+              <p className="text-xs text-gray-500 mb-1">Likes</p>
+              <p className="text-lg font-bold text-pink-600">{post.likes?.toLocaleString('es-CO')}</p>
+            </div>
+            <div className="bg-white border border-gray-100 rounded-xl p-3">
+              <p className="text-xs text-gray-500 mb-1">Comentarios</p>
+              <p className="text-lg font-bold text-blue-600">{post.comments?.toLocaleString('es-CO')}</p>
+            </div>
+            <div className="bg-white border border-gray-100 rounded-xl p-3">
+              <p className="text-xs text-gray-500 mb-1">Engagement</p>
+              <p className="text-lg font-bold text-indigo-600">{post.engagement_rate?.toFixed(2)}%</p>
+            </div>
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="bg-violet-50 border border-violet-100 rounded-xl p-6 text-center">
+              <div className="text-2xl mb-2">⏳</div>
+              <p className="text-sm text-violet-700">Generando análisis con IA...</p>
+              <p className="text-xs text-violet-500 mt-1">Puede tomar 5-10 segundos</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
+          {/* AI Insights */}
+          {insights && !insights.error && (
+            <>
+              {/* Veredicto */}
+              {insights.veredicto && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${verdictColor[insights.veredicto] || verdictColor['en el promedio']}`}>
+                    {insights.veredicto}
+                  </span>
+                  {insights.tipo_contenido && (
+                    <span className="text-xs text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full">
+                      {insights.tipo_contenido}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Rendimiento */}
+              {insights.rendimiento && (
+                <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-violet-700 mb-2">📊 Rendimiento</p>
+                  <p className="text-sm text-gray-800 leading-relaxed">{insights.rendimiento}</p>
+                </div>
+              )}
+
+              {/* Factores éxito + Áreas mejora */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Array.isArray(insights.factores_exito) && insights.factores_exito.length > 0 && (
+                  <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-green-700 mb-2">✅ Qué funcionó</p>
+                    <ul className="space-y-1">
+                      {insights.factores_exito.map((f, i) => (
+                        <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-green-500">→</span><span>{f}</span></li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(insights.areas_mejora) && insights.areas_mejora.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-amber-700 mb-2">⚠ Qué pudo ser mejor</p>
+                    <ul className="space-y-1">
+                      {insights.areas_mejora.map((f, i) => (
+                        <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-amber-500">→</span><span>{f}</span></li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Sugerencias */}
+              {Array.isArray(insights.sugerencias_proximos) && insights.sugerencias_proximos.length > 0 && (
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-indigo-700 mb-2">💡 Sugerencias para próximas publicaciones</p>
+                  <ul className="space-y-1.5">
+                    {insights.sugerencias_proximos.map((s, i) => (
+                      <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-indigo-500 font-bold">{i+1}.</span><span>{s}</span></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Mejor momento */}
+              {insights.mejor_momento_publicar && (
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-blue-700 mb-1">🕒 Mejor momento para publicar contenido similar</p>
+                  <p className="text-sm text-gray-700">{insights.mejor_momento_publicar}</p>
+                </div>
+              )}
+
+              {/* Comparativa */}
+              {insights._avg && (
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-gray-600 mb-3">📈 Comparado con tu promedio en {post.platform}</p>
+                  <div className="grid grid-cols-4 gap-2 text-xs">
+                    {[
+                      { label: 'Alcance', val: post.reach, avg: insights._avg.reach, fmt: v => v.toLocaleString('es-CO') },
+                      { label: 'Likes', val: post.likes, avg: insights._avg.likes, fmt: v => v.toLocaleString('es-CO') },
+                      { label: 'Coment.', val: post.comments, avg: insights._avg.comments, fmt: v => v.toLocaleString('es-CO') },
+                      { label: 'Engage.', val: post.engagement_rate, avg: insights._avg.engagement_rate, fmt: v => v.toFixed(2) + '%' },
+                    ].map(m => {
+                      const diff = m.avg ? ((m.val - m.avg) / m.avg * 100) : 0
+                      const positive = diff > 0
+                      return (
+                        <div key={m.label} className="bg-gray-50 rounded-lg p-2">
+                          <p className="text-gray-500">{m.label}</p>
+                          <p className="text-gray-900 font-semibold">{m.fmt(m.val)}</p>
+                          <p className={`text-[10px] ${positive ? 'text-green-600' : diff < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                            {positive ? '↑' : diff < 0 ? '↓' : '–'} {Math.abs(diff).toFixed(0)}% vs prom
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
